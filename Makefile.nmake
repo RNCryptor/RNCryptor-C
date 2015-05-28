@@ -1,0 +1,35 @@
+#--------------------------------------------
+# Makefile for MS Visual C++
+# muquit@muquit.com
+# updated for MS Visual Studio 10.0 Feb-27-2012 
+#--------------------------------------------
+
+OPENSSL_DIR=c:/openssl
+OPENSSL_LIBS=$(OPENSSL_DIR)/lib/libeay32.lib $(OPENSSL_DIR)/lib/ssleay32.lib
+OPENSSL_INC=/I$(OPENSSL_DIR)/include
+
+CFLAGS= /DWINNT /DWIN32 /DHAVE_MALLOC_H /DHAVE_STRING_H /DHAVE_FCNTL_H /DHAVE_CTYPE_H /DHAVE_STDLIB_H /DHAVE_OPENSSL /I. $(OPENSSL_INC)
+CFLAGS=$(CFLAGS) /Ox /W3 /wd4996 /nologo
+LIBFLAGS=/nologo
+WINDOWS_LIBS=ws2_32.lib shell32.lib advapi32.lib user32.lib gdi32.lib winmm.lib comdlg32.lib comctl32.lib
+LIBRARY=rncryptorc.lib
+LIBS=$(LIBRARY) $(OPENSSL_LIBS) $(WINDOWS_LIBS)
+DEFINES= $(INCLUDES) $(DEFS)
+
+
+SRCS = rncryptor_c.c mutils.c
+OBJS = rncryptor_c.obj mutils.obj
+
+all: $(LIBRARY)
+
+$(LIBRARY): $(OBJS)
+	lib $(LIBFLAGS) $(OBJS) /out:$(LIBRARY)
+
+EXAMPLES:
+	$(CC) $(CFLAGS) rn_encrypt.c $(LIBS) /Fern_encrypt.exe
+	$(CC) $(CFLAGS) rn_decrypt.c $(LIBS) /Fern_decrypt.exe
+	$(CC) $(CFLAGS) rn_encrypt_with_key.c $(LIBS) /Fern_encrypt_with_key.exe
+	$(CC) $(CFLAGS) rn_decrypt_with_key.c $(LIBS) /Fern_decrypt_with_key.exe
+
+clean:
+	del $(OBJS) $(LIBRARY) *.bak

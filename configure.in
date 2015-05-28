@@ -1,0 +1,160 @@
+dnl --------------------------------------------------------------------
+dnl Process this file with autoconf to produce a configure script.
+dnl muquit@muquit.com Feb-08-2014 
+dnl --------------------------------------------------------------------
+
+AC_INIT(rncryptor_c.h)
+AC_PROG_RANLIB
+AC_PROG_MAKE_SET
+dnl Checks for programs.
+AC_PROG_CC
+test "$GCC" = yes && CFLAGS="$CFLAGS -Wall"
+AC_PROG_INSTALL
+
+AC_CANONICAL_HOST
+
+dnl I hate config.h. I like to see all the defines while compiling
+dnl AC_CONFIG_HEADERS(config.h)
+AC_STDC_HEADERS
+AC_CHECK_HEADERS(string.h strings.h memory.h malloc.h unistd.h ctype.h)
+AC_CHECK_HEADERS(stdint.h sys/types.h stdlib.h fcntl.h sys/file.h)
+AC_CHECK_HEADERS(limits.h sys/syslimits.h)
+AC_PATH_TOOL([STRIP], [strip])
+AC_CHECK_FUNC(rand_r, AC_DEFINE(HAVE_RAND_R))
+AC_CHECK_FUNCS(socket)
+AC_CHECK_FUNC(getaddrinfo, AC_DEFINE(HAVE_GETADDRINFO))
+AC_SEARCH_LIBS([clock_gettime], [rt])
+
+PAM_LIBDIR=/lib
+case "$host" in
+    [i[3456]86-*])
+        AC_CHECK_SIZEOF([void *])
+        if test $ac_cv_sizeof_void_p = 8; then
+            arch=x86_64
+            PAM_LIBDIR=/lib64
+        else
+            arch=x86_32
+        fi
+    ;;
+
+    x86_64-*|amd64-*)
+        AC_CHECK_SIZEOF([void *])
+        if test $ac_cv_sizeof_void_p = 8; then
+            arch=x86_64
+            PAM_LIBDIR=/lib64
+        else
+            arch=x86_32
+        fi
+    ;;
+
+    alpha*-*)
+        arch=alpha
+    ;;
+
+    powerpc-*|powerpc64-*)
+        arch=powerpc
+    ;;
+
+    mips-*|mipsel-*|mips64-*|mips64el-*)
+        arch=mips
+    ;;
+
+    ia64-*)
+       PAM_LIBDIR=/lib64
+        arch=ia64
+    ;;
+
+    *)
+        arch=unknown
+    ;;
+esac
+
+AC_MSG_CHECKING([architecture type])
+AC_MSG_RESULT($arch)
+AC_SUBST(PAM_LIBDIR)
+
+OPENSSL_LIBS=""
+AC_MSG_CHECKING(for OpenSSL)
+OPENSSL_DO_IT_ALL
+if test ."$OPENSSL_DIR" != . -a ."$OPENSSL_INC" != . -a ."$OPENSSL_LIBS" != . ; then
+    AC_DEFINE(HAVE_OPENSSL)
+    AC_MSG_RESULT(yes)
+    use_open_ssl="yes"
+    MKEY_HEX="a02abc222"
+    OPENSSL_LIBS="-L$OPENSSL_DIR/lib -lssl -lcrypto"
+else
+    AC_MSG_RESULT(no)
+    AC_MSG_ERROR([no OpenSSL found.
+ Specify Path of OpenSSL with --with-openssl
+ Example:
+    --with-openssl=/usr
+    --with-openssl=/usr/local/ssl
+    --with-openssl=/usr/local/foo
+    etc.])
+fi
+DL_LIB=""
+if test ".$use_open_ssl" = ".yes"; then
+dnl following borrowed from bind 9.3.2's configure.in
+AC_MSG_CHECKING(whether linking with OpenSSL requires -ldl)
+        AC_TRY_LINK([
+#include <openssl/err.h>],
+[ DSO_METHOD_dlfcn(); ],
+        [AC_MSG_RESULT(no)],
+        [LIBS="$LIBS $OPENSSL_LIBS -ldl"
+        AC_TRY_LINK([
+#include <openssl/err.h>
+],[ DSO_METHOD_dlfcn(); ],
+        [AC_MSG_RESULT(yes)
+        OPENSSL_LIBS="-L$OPENSSL_DIR/lib -lssl -lcrypto -ldl"
+        ],
+         [AC_MSG_RESULT(unknown)
+         AC_MSG_RESULT(OpenSSL has unsupported dynamic loading)],
+        [AC_MSG_RESULT(assuming it does work on target platform)])
+        ],
+        [AC_MSG_RESULT(assuming it does work on target platform)]
+        )
+
+fi
+AC_SUBST(OPENSSL_LIBS)
+AC_SUBST(DL_LIB)
+
+AC_PATH_PROG(AR, ar)
+ARFLAGS="cruv"
+AC_SUBST(AR)
+AC_SUBST(ARFLAGS)
+
+PWD=`pwd`
+
+LIBMUTILS_DIR=$PWD/libs/libmutils
+AC_SUBST(LIBMUTILS_DIR)
+
+LIBSLL_DIR=$PWD/libs/libsll
+AC_SUBST(LIBSLL_DIR)
+
+LIBEVENT2_DIR=$PWD/libs/libevent2
+AC_SUBST(LIBEVENT2_DIR)
+
+LIBMUTILS=${LIBMUTILS_DIR}/libmutils.a
+AC_SUBST(LIBMUTILS)
+
+LIBSLL=${LIBSLL_DIR}/libsll.a
+AC_SUBST(LIBSLL)
+
+LIBTACPLUSAUTH_DIR=$PWD/libs/libtacpluscauth
+LIBTACPLUSAUTH_LIB=$LIBTACPLUSAUTH_DIR/libtacpluscauth.a
+AC_SUBST(LIBTACPLUSAUTH_DIR)
+AC_SUBST(LIBTACPLUSAUTH_LIB)
+
+
+A=a
+AC_SUBST(A)
+
+AC_SUBST(OPENSSL_INC)
+
+
+
+AC_CONFIG_FILES([
+    Makefile
+])
+
+AC_OUTPUT
