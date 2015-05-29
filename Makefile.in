@@ -69,6 +69,11 @@ examples: $(LIBNAME)
 test:
 	+ruby tests/test.rb
 
+test_with_test_vectors:
+	(cd tests;./GenVectorTests-C.rb -o test_with_test_vectors.c test_vectors)
+	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
+	tests/test_with_test_vectors
+
 install: installdirs install-all
 
 install-man:

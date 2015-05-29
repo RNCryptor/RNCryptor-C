@@ -748,3 +748,111 @@ size_t mutils_write_blob_string(MutilsBlob *blob,const char *string)
     return(mutils_write_blob(blob,strlen(string),string));
 }
 
+/**
+ * convert a hex string to it's binary format.
+ * @param   hex_string  - The hex string to convert
+ * @param   len         - length of the hex string
+ * @param   *olen       - The length of the binary string - returns
+ *
+ * @return  pointer to a unsigned char holding the binary version of the
+ *          hex string. returns NULL on failure. The caller should check
+ *          olen (> 0) before using the binary
+ *
+ * @note    Memory is allocated for the retured unsigned char pointer
+ *          The caller is responsible to free it
+ *
+ * The format of the hex string can be any of:
+ *      0xde:ad:be:ef:ca:fe
+ *      de:ad:be:ef:ca:fe
+ *      de-ad-be-ef-ca-fe
+ *      0xde-ad-be-ef-ca-fe
+ *      de:ad-be_ef:ca:fe
+ *
+ * The converted binary value will be: de ad be ef ca fe
+ * 
+ * It will only convert valid hex strings to binary, for example, if
+ * the string is like:  de:gh:ad:ff:bb:kk:cc
+ * The binary value will contain: de ad ff bb cc
+ * Note, gh and kk are ignored
+ */
+unsigned char *mutils_hex_to_bin(const char *hex_string,int len,int *olen)
+{
+    int
+        j=0;
+    int
+        bin_len=0,
+        n=0,
+        i; 
+
+    unsigned char
+        value,
+        *out;
+    const char
+        *cp=hex_string;
+
+    *olen = 0;
+    if (! hex_string || ! len)
+        return(NULL);
+
+    if ((*cp == '0') && ((*(cp + 1) == 'x') || (*(cp + 1) == 'X')))
+    {
+        cp += 2;
+        n=2;
+    }
+
+    /*
+    ** allocate half of hex_string as the length of binary.
+    ** we may be allocated more than needed as : - etc may be
+    ** part of the hex string
+    */
+    bin_len=(len >> 1);
+    if (bin_len <= 0)
+        return(NULL);
+
+    out=(unsigned char *) malloc(bin_len*sizeof(unsigned char));
+    memset(out,0,bin_len);
+    for (i=n; i < len; i += 2)
+    {
+        if (hex_string[i] == '\n' || hex_string[i] == '\r' ||
+            hex_string[i] == ' ' || hex_string[i] == '\t' ||
+            hex_string[i] == ':' ||
+            hex_string[i] == '-' ||
+            hex_string[i] == '_')
+        {
+            i--;
+            continue;
+        }
+        if (isxdigit(hex_string[i]) && isxdigit(hex_string[i+1]))
+        {
+            value=(mutils_hex_char_to_bin (hex_string[i]) << 4) & 0xf0;
+            value |= (mutils_hex_char_to_bin(hex_string[i+1]) & 0x0f);
+            out[j++]=value;
+        }
+    }
+    *olen=j;
+
+    return(out);
+}
+
+unsigned char mutils_hex_char_to_bin(char x)
+{
+    if (x >= '0' && x <= '9')
+        return(x - '0');
+
+    x=toupper(x);
+    return((x - 'A') + 10);
+}
+void mutils_hex_print(FILE *fp,unsigned char *bytes,int len)
+{
+    int
+        i;
+    for (i=0; i < len; i++)
+    {
+        (void) fprintf(fp,"%02x ",bytes[i]);
+        if ((i % 16) == 15)
+            fprintf(fp, "\n");
+
+    }
+    (void) fprintf(fp,"\n");
+    (void)fflush(fp);
+}

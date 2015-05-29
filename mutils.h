@@ -172,5 +172,8 @@ int     mutils_write_blob_msb_long(MutilsBlob *blob,const unsigned long value);
 int     mutils_write_blob_msb_short(MutilsBlob *blob,const unsigned long value);
 size_t  mutils_write_blob_string(MutilsBlob *blob_info,const char *string);
 
+void mutils_hex_print(FILE *fp,unsigned char *bytes,int len);
+unsigned char mutils_hex_char_to_bin(char x);
+unsigned char *mutils_hex_to_bin(const char *hex_string,int len,int *olen);
 
 #endif /* MUTILS_H */

@@ -32,9 +32,9 @@ MAN1DIR = $(DESTDIR)$(man1dir)
 
 MANPAGE= 
 
-OPENSSL_DIR=/usr/
-OPENSSL_INC=-I/usr//include
-OPENSSL_LIBS=-L/usr//lib -lssl -lcrypto -ldl 
+OPENSSL_DIR=/usr/local/ssl/
+OPENSSL_INC=-I/usr/local/ssl//include
+OPENSSL_LIBS=-L/usr/local/ssl//lib -lssl -lcrypto -ldl 
 
 STRIP=/usr/bin/strip
 
@@ -68,6 +68,11 @@ examples: $(LIBNAME)
 
 test:
 	+ruby tests/test.rb
+
+test_with_test_vectors:
+	(cd tests;./GenVectorTests-C.rb -o test_with_test_vectors.c test_vectors)
+	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
+	tests/test_with_test_vectors
 
 install: installdirs install-all
 

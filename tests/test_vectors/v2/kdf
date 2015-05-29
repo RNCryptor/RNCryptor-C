@@ -1,0 +1,34 @@
+# Test vectors for key derivation
+# title: trimmed-string
+# version: integer (version of format)
+# password: string (any length)
+# salt_hex: hex-string
+# key_hex: hex-string
+
+#
+# Version 2 vectors
+#
+
+title:      One byte
+version:    2
+password:   a
+salt_hex:	  0102030405060708
+key_hex:  	fc632b0c a6b23eff 9a9dc3e0 e585167f 5a328916 ed19f835 58be3ba9 828797cd
+
+title:      Short password
+version:    2
+password:   thepassword
+salt_hex:	  0203040506070801
+key_hex:  	0ea84f52 52310dc3 e3a7607c 33bfd1eb 580805fb 68293005 da21037c cf499626
+
+title:      Passphrase
+version:    2
+password:   this is a bit longer password
+salt_hex:	  0304050607080102
+key_hex:  	71343acb 1e9675b0 16ac65dc fe5ddac2 e57ed9c3 5565fdbb 2dd6d2ce fe263d5b
+
+title:      Long passphrase
+version:    2
+password:   $$$it was the epoch of belief, it was the epoch of incredulity; it was the season of Light, it was the season of Darkness; it was the spring of hope, it was the winter of despair; we had everything before us, we had nothing before us; we were all going directly to Heaven, we were all going the other way.
+salt_hex:	  0405060708010203
+key_hex:  	11b52c50 cbf45be6 a636a314 2b8c30b8 5a624481 4a7d43e3 7457f38d e46c6735

@@ -312,6 +312,19 @@ unsigned char *rncryptorc_encrypt_data_with_password(const unsigned char *indata
         char *errbuf,
         int errbuf_len);
 
+unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const unsigned char *indata,
+        int indata_len,
+        int kdf_iter,
+        const char *password,
+        int password_length,
+        unsigned char *encr_salt_8,
+        unsigned char *hmac_salt_8,
+        unsigned char *iv_16,
+        int *outdata_len,
+        char *errbuf,
+        int errbuf_len);
+
+
 /*
 **  Encrypt data with a encryption key. HMAC key is also requried for
 **  creating the HMAC-SHA256 digest
@@ -347,6 +360,16 @@ unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
         const unsigned char *encryption_key,
         const unsigned char *hmac_key,
         int *out_data_len,
+        char *errbuf,
+        int errbuf_len);
+
+unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
+        int indata_len,
+        int kdf_iter,
+        const unsigned char *encryption_key,
+        const unsigned char *hmac_key,
+        const unsigned char *iv_16,
+        int *outdata_len,
         char *errbuf,
         int errbuf_len);
 

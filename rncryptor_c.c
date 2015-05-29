@@ -669,6 +669,237 @@ ExitProcessing:
     return(output);
 }
 
+unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const unsigned char *indata,
+        int indata_len,
+        int kdf_iter,
+        const char *password,
+        int password_length,
+        unsigned char *encr_salt_8,
+        unsigned char *hmac_salt_8,
+        unsigned char *iv_16,
+        int *outdata_len,
+        char *errbuf,
+        int errbuf_len)
+{
+    RNCryptorInfo
+        *ci = NULL;
+
+    MutilsBlob
+        *blob = NULL,
+        *plain_blob = NULL;
+
+    EVP_CIPHER_CTX
+        cipher_ctx;
+
+    HMAC_CTX
+        hmac_ctx;
+
+    int
+        rc=FAILURE;
+
+    const EVP_MD
+        *sha256 = NULL;
+
+    int
+        outlen1 = 0,
+        outlen2 = 0;
+
+    unsigned int
+        hmac_len;
+
+    unsigned char
+        hmac_sha256[32];
+
+    unsigned char
+        *output = NULL;
+
+    unsigned int
+        blocksize = 16;
+
+
+    log_debug("%s:%d - verifying input",MCFL);
+    if (errbuf_len <= 0)
+    {
+        log_err("ERROR:Invalid errbuf len %d",errbuf_len);
+        goto ExitProcessing;
+    }
+
+    memset(errbuf,0,errbuf_len);
+    /* indata can be NULL */
+    /*
+    if (indata == NULL)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"%s",
+                "input data can is NULL");
+        goto ExitProcessing;
+    }
+    if (indata_len <= 0)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"Invalid input data length %d",
+                indata_len);
+        goto ExitProcessing;
+    }
+    */
+    if (password == NULL || *password == '\0')
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"%s",
+                "Password can not be NULL");
+        goto ExitProcessing;
+    }
+    if (password_length <= 0)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"Invalid password length %d",password_length);
+        goto ExitProcessing;
+    }
+
+    ci = allocate_rncryptor_info();
+    if (!ci)
+    {
+        goto ExitProcessing;
+    }
+    ci->kdf_iter = kdf_iter;
+    ci->options = 0x01;
+
+    EVP_EncryptInit(&cipher_ctx,EVP_aes_256_cbc(),ci->encr_key,ci->iv);
+    blocksize = EVP_CIPHER_CTX_block_size(&cipher_ctx);
+    log_debug("%s:%d - Block size: %ld",MCFL,blocksize);
+
+    /*
+    ** Convert input data to our blob. Allocating again just for
+    ** simplicity, blob could be passed in here but then the api gets
+    ** complicated!
+    */
+    if (indata == NULL)
+    {
+        plain_blob = mutils_allocate_blob(blocksize);
+    }
+    else
+    {
+        plain_blob = mutils_data_to_blob((unsigned char *)indata,indata_len);
+    }
+    CHECK_MALLOC(plain_blob);
+    log_debug("%s:%d - input data size %d bytes",
+            MCFL,
+            plain_blob->length);
+    ci->blob = plain_blob;
+    log_debug("%s:%d - Encoding",MCFL);
+
+    /*
+    ** Encode. memory will be re-allocated if needed.
+    */
+    blob = mutils_allocate_blob(plain_blob->length);
+    CHECK_MALLOC(blob);
+
+    /* version */
+    mutils_write_blob_byte(blob,ci->version);
+
+    /* options */
+    mutils_write_blob_byte(blob,ci->options);
+
+    /* 8 byte encryption salt, we're using password */
+    memcpy(ci->encryption_salt,encr_salt_8,8);
+    mutils_write_blob(blob,8,ci->encryption_salt);
+
+    /* 8 byte hmac salt */
+    memcpy(ci->hmac_salt,hmac_salt_8,8);
+    mutils_write_blob(blob,8,ci->hmac_salt);
+
+    /* 16 byte iv */
+    memcpy(ci->iv,iv_16,16);
+    mutils_write_blob(blob,16,ci->iv);
+
+    log_debug("%s:%d - Deriving HMAC key with salt using iterations %d",
+            MCFL,
+            ci->kdf_iter);
+    /* Derive HMAC key from password using hmac salt and iteration as per RFC2898 */
+    rc = PKCS5_PBKDF2_HMAC_SHA1(password,password_length,
+            ci->hmac_salt,
+            8,
+            ci->kdf_iter,
+            32,
+            ci->hmac_key); /* ci->hmac_key is returend */
+    if (rc != 1)
+    {
+        log_err("ERROR: Could not derive key from password with hmac salt and iter");
+        (void)snprintf(errbuf,errbuf_len-1,"%s",
+                "Could not derive key from password with hmac salt and iter");
+        goto ExitProcessing;
+    }
+
+    log_debug("%s:%d - Deriving Cipher key with salt using iterations %d",
+            MCFL,
+            ci->kdf_iter);
+    /* Derive cipher key from password using encr salt and iteration as per RFC2898 */
+    rc = PKCS5_PBKDF2_HMAC_SHA1(password,password_length,
+            ci->encryption_salt,
+            8,
+            ci->kdf_iter,
+            32,
+            ci->encr_key); /* ci->encr_key is returend */
+    if (rc != 1)
+    {
+        log_err("ERROR: Could not derive key from password with encr salt and iter");
+        (void)snprintf(errbuf,errbuf_len-1,"%s",
+                "Could not derive key from password with encr salt and iter");
+        goto ExitProcessing;
+    }
+    log_debug("%s:%d - Encrypting..",MCFL);
+    /* create cipher text */
+    /* allocate space for cipher text */
+    ci->cipher_text_length =
+          plain_blob->length + blocksize - (plain_blob->length % blocksize);
+    ci->cipher_text =
+        (unsigned char *) malloc(ci->cipher_text_length * sizeof(unsigned char));
+    EVP_EncryptUpdate(&cipher_ctx,ci->cipher_text, &outlen1,
+            plain_blob->data,plain_blob->length);
+    EVP_EncryptFinal(&cipher_ctx,ci->cipher_text + outlen1,&outlen2);
+    EVP_CIPHER_CTX_cleanup(&cipher_ctx);
+    mutils_write_blob(blob,outlen1 + outlen2,ci->cipher_text);
+
+    log_debug("%s:%d - Plain text length: %d",MCFL,plain_blob->length);
+    log_debug("%s:%d - Cipther text length: %d",MCFL,ci->cipher_text_length);
+    log_debug("%s:%d - Padding %d bytes",
+            MCFL,ci->cipher_text_length - plain_blob->length);
+    log_debug("%s:%d - outdata len: %d",MCFL,outlen1 + outlen2);
+
+    /* don't need plain blob anymore */
+    mutils_destroy_blob(plain_blob);
+    plain_blob = NULL;
+
+    log_debug("%s:%d - calculating HMAC-SHA256",MCFL);
+    /* calculate HMAC-SHA256 */
+    sha256 = EVP_sha256();
+    HMAC_CTX_init(&hmac_ctx);
+    HMAC_Init(&hmac_ctx,ci->hmac_key,32,sha256);
+    HMAC_Update(&hmac_ctx,blob->data,blob->length);
+    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
+    HMAC_CTX_cleanup(&hmac_ctx);
+
+    mutils_write_blob(blob,hmac_len,hmac_sha256);
+    log_debug("%s:%d - Output lenth %lu",MCFL,blob->length);
+
+    output = (unsigned char *)malloc(blob->length * sizeof(unsigned char));
+    CHECK_MALLOC(output);
+
+    memcpy(output,blob->data,blob->length);
+    *outdata_len = blob->length;
+ExitProcessing:
+    if (ci)
+    {
+        free_rncryptor_info(ci);
+    }
+
+    if (plain_blob)
+    {
+        mutils_destroy_blob(plain_blob);
+    }
+
+    if (blob)
+    {
+        mutils_destroy_blob(blob);
+    }
+    return(output);
+}
 unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
         int indata_len,
         int kdf_iter,
@@ -803,6 +1034,178 @@ unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
     sha256 = EVP_sha256();
     HMAC_CTX_init(&hmac_ctx);
     HMAC_Init(&hmac_ctx,hmac_key,32,sha256);
+    HMAC_Update(&hmac_ctx,blob->data,blob->length);
+    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
+    HMAC_CTX_cleanup(&hmac_ctx);
+
+    mutils_write_blob(blob,hmac_len,hmac_sha256);
+    output = (unsigned char *)malloc(blob->length * sizeof(unsigned char));
+    CHECK_MALLOC(output);
+
+    memcpy(output,blob->data,blob->length);
+    *outdata_len = blob->length;
+ExitProcessing:
+    if (ci)
+    {
+        free_rncryptor_info(ci);
+    }
+
+    if (plain_blob)
+    {
+        mutils_destroy_blob(plain_blob);
+    }
+
+    if (blob)
+    {
+        mutils_destroy_blob(blob);
+    }
+    return(output);
+}
+
+/*XXX */
+unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
+        int indata_len,
+        int kdf_iter,
+        const unsigned char *encr_key,
+        const unsigned char *hmac_key,
+        const unsigned char *iv_16,
+        int *outdata_len,
+        char *errbuf,
+        int errbuf_len)
+{
+    RNCryptorInfo
+        *ci = NULL;
+
+    MutilsBlob
+        *blob = NULL,
+        *plain_blob = NULL;
+
+    EVP_CIPHER_CTX
+        cipher_ctx;
+
+    HMAC_CTX
+        hmac_ctx;
+
+    const EVP_MD
+        *sha256 = NULL;
+
+    int
+        outlen1 = 0,
+        outlen2 = 0;
+
+    unsigned int
+        hmac_len;
+
+    unsigned char
+        hmac_sha256[32];
+
+    unsigned char
+        *output = NULL;
+
+    unsigned int
+        blocksize = 16;
+
+    log_debug("%s:%d - verifying input",MCFL);
+    if (errbuf_len <= 0)
+    {
+        log_err("ERROR:Invalid errbuf len %d",errbuf_len);
+        goto ExitProcessing;
+    }
+
+    memset(errbuf,0,errbuf_len);
+    /*
+    if (indata == NULL)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,
+                "Input data is NULL");
+        goto ExitProcessing;
+    }
+    if (indata_len <= 0)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"Invalid input data length %d",
+                indata_len);
+        goto ExitProcessing;
+    }
+    */
+
+    ci = allocate_rncryptor_info();
+    if (!ci)
+    {
+        goto ExitProcessing;
+    }
+    memcpy(ci->iv,iv_16,16);
+
+    EVP_EncryptInit(&cipher_ctx,EVP_aes_256_cbc(),encr_key,ci->iv);
+    blocksize = EVP_CIPHER_CTX_block_size(&cipher_ctx);
+    log_debug("%s:%d - Block size: %ld",MCFL,blocksize);
+
+    /*
+    ** convert input data to our blob. We also can not free it until
+    ** encryption is done
+    */
+    if (indata == NULL)
+    {
+        plain_blob = mutils_allocate_blob(blocksize);
+    }
+    else
+    {
+        plain_blob = mutils_data_to_blob((unsigned char *)indata,indata_len);
+    }
+    log_debug("%s:%d - input data size %d bytes",
+            MCFL,
+            plain_blob->length);
+    CHECK_MALLOC(plain_blob);
+    ci->blob = plain_blob;
+
+    /*
+    ** Encode the encrypted data. Memory will be re-allocated if needed.
+    */
+    blob = mutils_allocate_blob(plain_blob->length);
+    CHECK_MALLOC(blob);
+
+    /* version */
+    mutils_write_blob_byte(blob,ci->version);
+
+    /* options */
+    ci->options = 0x00;
+    mutils_write_blob_byte(blob,ci->options);
+
+    /* 16 byte iv */
+    mutils_write_blob(blob,16,ci->iv);
+
+    log_debug(":%s:%d - Encrypting,",MCFL);
+
+    /* allocate space for cipher text */
+    ci->cipher_text_length =
+          plain_blob->length + blocksize - (plain_blob->length % blocksize);
+    ci->cipher_text =
+        (unsigned char *) malloc(ci->cipher_text_length * sizeof(unsigned char));
+    CHECK_MALLOC(ci->cipher_text);
+    log_debug("%s:%d - Plain text length: %d",MCFL,plain_blob->length);
+    mutils_hex_print(stderr,plain_blob->data,plain_blob->length);
+    log_debug("%s:%d - Cipther text length: %d",MCFL,ci->cipher_text_length);
+    log_debug("%s:%d - Padding %d bytes",
+            MCFL,(ci->cipher_text_length - plain_blob->length));
+
+ //   EVP_EncryptUpdate(&cipher_ctx,ci->cipher_text,
+ //       &outlen1,plain_blob->data,plain_blob->length);
+    EVP_EncryptUpdate(&cipher_ctx,ci->cipher_text,
+        &outlen1,NULL,0);
+    (void) fprintf(stderr," outlen1 %d\n",outlen1);
+    EVP_EncryptFinal(&cipher_ctx,ci->cipher_text + outlen1,&outlen2);
+    (void) fprintf(stderr," outlen2 %d\n",outlen2);
+    EVP_CIPHER_CTX_cleanup(&cipher_ctx);
+
+    mutils_write_blob(blob,outlen1 + outlen2,ci->cipher_text);
+
+    /* don't need plain blob anymore */
+    mutils_destroy_blob(plain_blob);
+    plain_blob = NULL;
+
+    /* calculate HMAC-SHA256 */
+    sha256 = EVP_sha256();
+    HMAC_CTX_init(&hmac_ctx);
+    HMAC_Init(&hmac_ctx,ci->hmac_key,16,sha256);
     HMAC_Update(&hmac_ctx,blob->data,blob->length);
     HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
     HMAC_CTX_cleanup(&hmac_ctx);
