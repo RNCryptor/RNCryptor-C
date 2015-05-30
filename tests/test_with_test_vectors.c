@@ -1,6 +1,6 @@
 /*
 ** WARNING: This file is auto generated. DO NOT MODIFY
-** 2015-05-29 17:18:33 -0400 by GenVectorTests-C.rb
+** 2015-05-29 22:22:25 -0400 by GenVectorTests-C.rb
 */
 #include "rncryptor_c.h"
 #include "mutils.h"
@@ -37,28 +37,23 @@ void verify_v3_key(const char *title,
     char
         errbuf[BUFSIZ];
 
-    (void) fprintf(stderr,"title: %s\n",title);
-    (void) fprintf(stderr,"Plaintext hex: '%x'\n",plaintext_hex);
-    if (*plaintext_hex == '\0')
-    {
-        (void) fprintf(stderr,"plaintext is NULL\n");
-    }
+    (void) fprintf(stderr,"veriry_v3_key title: %s\n",title);
 
     (void) fprintf(stderr,"title %s\n",title);
     enc_key_bin = mutils_hex_to_bin(enc_key_hex,strlen(enc_key_hex),
             &enc_key_bin_len);
-    (void) fprintf(stderr,"enc key:\n");
+    (void) fprintf(stderr,"enc key: %d\n",enc_key_bin_len);
     mutils_hex_print(stderr,enc_key_bin,enc_key_bin_len);
-    (void) fprintf(stderr,"hmac key:\n");
     hmac_key_bin = mutils_hex_to_bin(hmac_key_hex,strlen(hmac_key_hex),
             &hmac_key_bin_len);
+    (void) fprintf(stderr,"hmac key: %d\n",hmac_key_bin_len);
     mutils_hex_print(stderr,hmac_key_bin,hmac_key_bin_len);
 
     iv_bin = mutils_hex_to_bin(iv_hex,strlen(iv_hex),
             &iv_bin_len);
-    (void) fprintf(stderr,"IV:\n");
+    (void) fprintf(stderr,"IV: %d\n",iv_bin_len);
     mutils_hex_print(stderr,iv_bin,iv_bin_len);
-    plaintext_bin_len=0;
+    (void) fprintf(stderr,"plaintext hex %02x",plaintext_hex);
     plaintext_bin = mutils_hex_to_bin(plaintext_hex,strlen(plaintext_hex),
             &plaintext_bin_len);
     (void) fprintf(stderr,"Plain text len: %d\n",plaintext_bin_len);
@@ -66,7 +61,7 @@ void verify_v3_key(const char *title,
     (void) fprintf(stderr,"plaintext len: %d\n",plaintext_bin_len);
     ciphertext_bin = mutils_hex_to_bin(ciphertext_hex,strlen(ciphertext_hex),
             &ciphertext_bin_len);
-    (void) fprintf(stderr,"cipher text in test %d bytes\n",ciphertext_bin_len);
+    (void) fprintf(stderr,"cipher text in test\n");
     mutils_hex_print(stderr,ciphertext_bin,ciphertext_bin_len);
     rncryptorc_set_debug(1);
     cipher_text = rncryptorc_encrypt_data_with_key_iv(plaintext_bin,
@@ -81,7 +76,6 @@ void verify_v3_key(const char *title,
     (void) fprintf(stderr,"errbuf: %s\n",errbuf);
     (void) fprintf(stderr,"%s,len:%d\n",title,cipher_text_len);
     mutils_hex_print(stderr,cipher_text,cipher_text_len);
-    exit(1);
 }
 
 void verify_v3_password(const char *title,
@@ -324,7 +318,7 @@ void test_v3_password_Longer_text_and_password(void)
 void test_v3_key_All_fields_empty_or_zero(void)
 {
   verify_v3_key(
-    "All fields empty or zeroX",
+    "All fields empty or zero",
     "3",
     "00000000000000000000000000000000",
     "00000000000000000000000000000000",

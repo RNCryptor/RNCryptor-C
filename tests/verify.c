@@ -33,24 +33,22 @@ void verify_v3_key(const char *title,
     char
         errbuf[BUFSIZ];
 
-    (void) fprintf(stderr,"title: %s\n",title);
-    (void) fprintf(stderr,"Plaintext hex: %x\n",plaintext_hex);
+    (void) fprintf(stderr,"veriry_v3_key title: %s\n",title);
 
     (void) fprintf(stderr,"title %s\n",title);
     enc_key_bin = mutils_hex_to_bin(enc_key_hex,strlen(enc_key_hex),
             &enc_key_bin_len);
-    (void) fprintf(stderr,"enc key:\n");
+    (void) fprintf(stderr,"enc key: %d\n",enc_key_bin_len);
     mutils_hex_print(stderr,enc_key_bin,enc_key_bin_len);
-    (void) fprintf(stderr,"hmac key:\n");
     hmac_key_bin = mutils_hex_to_bin(hmac_key_hex,strlen(hmac_key_hex),
             &hmac_key_bin_len);
+    (void) fprintf(stderr,"hmac key: %d\n",hmac_key_bin_len);
     mutils_hex_print(stderr,hmac_key_bin,hmac_key_bin_len);
 
     iv_bin = mutils_hex_to_bin(iv_hex,strlen(iv_hex),
             &iv_bin_len);
-    (void) fprintf(stderr,"IV:\n");
+    (void) fprintf(stderr,"IV: %d\n",iv_bin_len);
     mutils_hex_print(stderr,iv_bin,iv_bin_len);
-    exit(1);
     (void) fprintf(stderr,"plaintext hex %02x",plaintext_hex);
     plaintext_bin = mutils_hex_to_bin(plaintext_hex,strlen(plaintext_hex),
             &plaintext_bin_len);

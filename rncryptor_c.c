@@ -1189,12 +1189,14 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
 
  //   EVP_EncryptUpdate(&cipher_ctx,ci->cipher_text,
  //       &outlen1,plain_blob->data,plain_blob->length);
-    EVP_EncryptUpdate(&cipher_ctx,ci->cipher_text,
-        &outlen1,NULL,0);
+    EVP_EncryptUpdate(&cipher_ctx,ci->cipher_text,&outlen1,NULL,0);
     (void) fprintf(stderr," outlen1 %d\n",outlen1);
     EVP_EncryptFinal(&cipher_ctx,ci->cipher_text + outlen1,&outlen2);
     (void) fprintf(stderr," outlen2 %d\n",outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
+
+    (void) fprintf(stderr,"Cipher text:\n");
+    mutils_hex_print(stderr,ci->cipher_text,outlen1 + outlen2);
 
     mutils_write_blob(blob,outlen1 + outlen2,ci->cipher_text);
 
@@ -1205,7 +1207,7 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
     /* calculate HMAC-SHA256 */
     sha256 = EVP_sha256();
     HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,ci->hmac_key,16,sha256);
+    HMAC_Init(&hmac_ctx,hmac_key,32,sha256);
     HMAC_Update(&hmac_ctx,blob->data,blob->length);
     HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
     HMAC_CTX_cleanup(&hmac_ctx);
