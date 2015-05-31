@@ -76,7 +76,7 @@ MAIN
         v = $1
         if v != x
           output << <<-TTT
-    (void)fprintf(stderr,"\\e[1mVerify #{v}\\e[0m\\n");
+    (void)fprintf(stderr,"Verify #{v}\\n");
 TTT
           x = v
         end

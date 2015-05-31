@@ -1,6 +1,6 @@
 /*
 ** WARNING: This file is auto generated. DO NOT MODIFY
-** 2015-05-31 10:53:48 -0400 by GenVectorTests-C.rb
+** 2015-05-31 12:48:08 -0400 by GenVectorTests-C.rb
 */
 #include "rncryptor_c.h"
 #include "mutils.h"
@@ -63,11 +63,11 @@ void verify_v3_key(const char *title,
         sizeof(errbuf)-1);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
+        (void) fprintf(stderr," %s: PASSED\n",title);
     }
     else
     {
-        (void) fprintf(stderr," %s: \e[31mFAILED\e[0m\n",title);
+        (void) fprintf(stderr," %s: FAILED\n",title);
     }
 }
 
@@ -129,7 +129,7 @@ void verify_v3_password(const char *title,
             sizeof(errbuf)-1);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
+        (void) fprintf(stderr," %s: PASSED\n",title);
     }
     else
     {
@@ -170,7 +170,7 @@ void verify_v3_kdf(const char *title,
     {
         if (memcmp(key_bin,key,32) == 0)
         {
-        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
+        (void) fprintf(stderr," %s: PASSED\n",title);
         }
         else
         {
@@ -384,21 +384,21 @@ void test_v3_key_More_than_one_block(void)
 
 int main(int argc,char **argv)
 {
-    (void)fprintf(stderr,"\e[1mVerify v3_kdf\e[0m\n");
+    (void)fprintf(stderr,"Verify v3_kdf\n");
     test_v3_kdf_One_byte();
     test_v3_kdf_Short_password();
     test_v3_kdf_Passphrase();
     test_v3_kdf_Long_passphrase();
     test_v3_kdf_Multibyte();
     test_v3_kdf_Mixed_language();
-    (void)fprintf(stderr,"\e[1mVerify v3_password\e[0m\n");
+    (void)fprintf(stderr,"Verify v3_password\n");
     test_v3_password_All_fields_empty_or_zero_with_one_byte_password_();
     test_v3_password_One_byte();
     test_v3_password_Exactly_one_block();
     test_v3_password_More_than_one_block();
     test_v3_password_Multibyte_password();
     test_v3_password_Longer_text_and_password();
-    (void)fprintf(stderr,"\e[1mVerify v3_key\e[0m\n");
+    (void)fprintf(stderr,"Verify v3_key\n");
     test_v3_key_All_fields_empty_or_zero();
     test_v3_key_One_byte();
     test_v3_key_Exactly_one_block();

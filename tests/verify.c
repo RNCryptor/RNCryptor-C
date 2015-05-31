@@ -59,11 +59,11 @@ void verify_v3_key(const char *title,
         sizeof(errbuf)-1);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
+        (void) fprintf(stderr," %s: PASSED\n",title);
     }
     else
     {
-        (void) fprintf(stderr," %s: \e[31mFAILED\e[0m\n",title);
+        (void) fprintf(stderr," %s: FAILED\n",title);
     }
 }
 
@@ -125,7 +125,7 @@ void verify_v3_password(const char *title,
             sizeof(errbuf)-1);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
+        (void) fprintf(stderr," %s: PASSED\n",title);
     }
     else
     {
@@ -166,7 +166,7 @@ void verify_v3_kdf(const char *title,
     {
         if (memcmp(key_bin,key,32) == 0)
         {
-        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
+        (void) fprintf(stderr," %s: PASSED\n",title);
         }
         else
         {
