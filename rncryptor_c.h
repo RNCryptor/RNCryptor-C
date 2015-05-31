@@ -159,7 +159,7 @@
 **  Development History:
 **   muquit@muquit.com May-20-2015 - first cut
 */
-void rncryptorc_set_debug(int d)
+void rncryptorc_set_debug(int d);
 
 /*
 **  Encrypt a file with a password. Encryption salt, HMAC salt and IV are 
