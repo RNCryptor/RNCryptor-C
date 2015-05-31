@@ -33,24 +33,25 @@ class TestRnCryptorC < MiniTest::Unit::TestCase
 
   # decrypt with password
   def test_a
-    print ".DECRYPT WITH PASSWORD.."
+    print ".DECRYPT WITH PASSWORD: "
     cmd = ''
     cmd << @decrypt_password_prog
     cmd << ' '
     cmd << @image
     cmd << ' '
     cmd << @outfile
+    cmd << ">/dev/null 2>&1"
     system(cmd)
     rc = $?.exitstatus
     assert_equal(0,rc,"Could not decrypt image")
     digest = Digest::MD5.file(@outfile)
     assert_equal(@imagedigest,digest.hexdigest,"Corrupt encryption")
-    puts "ok"
+    puts "PASSED"
   end
 
   # encrypt with key
   def test_b
-    print "ENCRYPT WITH KEY.."
+    print "ENCRYPT WITH KEY: "
     cmd = ''
     cmd << @encrypt_with_key_prog
     cmd << ' '
@@ -61,15 +62,16 @@ class TestRnCryptorC < MiniTest::Unit::TestCase
     cmd << @outfile
     cmd << ' '
     cmd << @outfile2
+    cmd << ">/dev/null 2>&1"
     system(cmd)
     rc = $?.exitstatus
     assert_equal(0,rc,"Could not encrypt image with encryption key")
-    puts "ok"
+    puts "PASSED"
   end
 
   # decrypt with key
   def test_c
-    print "DECRYPT WITH KEY.."
+    print "DECRYPT WITH KEY: "
     cmd = ''
     cmd << @decrypt_with_key_prog
     cmd << ' '
@@ -81,48 +83,51 @@ class TestRnCryptorC < MiniTest::Unit::TestCase
     cmd << @outfile2
     cmd << ' '
     cmd << @outfile
+    cmd << ">/dev/null 2>&1"
     system(cmd)
     rc = $?.exitstatus
     assert_equal(0,rc,"Could not decrypt image with encryption key")
     digest = Digest::MD5.file(@outfile)
     assert_equal(@imagedigest,digest.hexdigest,"Corrupt encryption")
-    puts "ok"
+    puts "PASSED"
   end
 
   # encrypt with password
   def test_e
-    print "ENCRYPT WITH PASSWORD.."
+    print "ENCRYPT WITH PASSWORD: "
     cmd = ''
     cmd << @encrypt_password_prog
     cmd << ' '
     cmd << @outfile
     cmd << ' '
     cmd << @outfile2
+    cmd << ">/dev/null 2>&1"
     system(cmd)
     rc = $?.exitstatus
     assert_equal(0,rc,"Could not encrypt image with password")
-    puts "ok"
+    puts "PASSED"
   end
 
   # decrypt with password again
   def test_f
-    print "DECRYPT WITH PASSWORD.."
+    print "DECRYPT WITH PASSWORD: "
     cmd = ''
     cmd << @decrypt_password_prog
     cmd << ' '
     cmd << @outfile2
     cmd << ' '
     cmd << @outfile
+    cmd << ">/dev/null 2>&1"
     system(cmd)
     rc = $?.exitstatus
     assert_equal(0,rc,"Could not encrypt image with password")
     digest = Digest::MD5.file(@outfile)
     assert_equal(@imagedigest,digest.hexdigest,"Corrupt encryption")
-    puts "ok"
+    puts "PASSED"
   end
 
   def test_g
-    print "DECRYPT TEXTFILE WITH PASSWORD.."
+    print "DECRYPT TEXTFILE WITH PASSWORD: "
     cmd = ''
     cmd << @decrypt_password_prog
     cmd << ' '
@@ -130,9 +135,10 @@ class TestRnCryptorC < MiniTest::Unit::TestCase
     cmd << ' '
     cmd << "-"
     cmd << ' '
+    cmd << "2>/dev/null"
     text=`#{cmd}`.chomp
     assert_equal("this is a test",text)
-    puts "ok"
+    puts "PASSED"
   end
 
   def test_z

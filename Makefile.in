@@ -69,9 +69,13 @@ examples: $(LIBNAME)
 test:
 	+ruby tests/test.rb
 
-test_with_test_vectors:
+gen_test_vector_code:
 	(cd tests;./GenVectorTests-C.rb -o test_with_test_vectors.c test_vectors)
 	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
+
+# test code must be pre-generated with target gen_test_vector_code
+# we use the test in windows as well but code is generated in Unix with ruby
+test_vectors:
 	tests/test_with_test_vectors
 
 install: installdirs install-all

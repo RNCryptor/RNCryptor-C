@@ -134,6 +134,10 @@
 #endif
 #endif
 
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
+
 void rncryptorc_set_debug(int d);
 
 /*
@@ -366,8 +370,8 @@ unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
 unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
         int indata_len,
         int kdf_iter,
-        const unsigned char *encryption_key,
-        const unsigned char *hmac_key,
+        const unsigned char *encryption_key_32,
+        const unsigned char *hmac_key_32,
         const unsigned char *iv_16,
         int *outdata_len,
         char *errbuf,

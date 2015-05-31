@@ -40,12 +40,17 @@ HEADER
 end
 
 # Output the tests for a given filename to the output stream
+# ignore v1 and v2
 def outputTestsForFile(output, name)
   name_identifier = name.gsub('/', '_')
   return if name_identifier =~ /v1/
   return if name_identifier =~ /v2/
+  x = "blah"
   VectorParser.new(@options[:vector_directory] + '/' + name).vectors.each do |vector|
   func = "test_#{name_identifier}_#{vector["title"].gsub(/[ ()-]+/, '_')}"
+  if name_identifier != x
+    x = name_identifier
+  end
   @funcs << func
   output << <<-TEST_CASE
 
@@ -65,7 +70,17 @@ def outputFooter(output)
 int main(int argc,char \*\*argv)
 {
 MAIN
+    x="junk"
     @funcs.each do |func|
+      if func =~ /^test_(v\d+_[a-z]+)_.+$/
+        v = $1
+        if v != x
+          output << <<-TTT
+    (void)fprintf(stderr,"\\e[1mVerify #{v}\\e[0m\\n");
+TTT
+          x = v
+        end
+      end
     output<< <<-FOOTER
     #{func}();
 FOOTER

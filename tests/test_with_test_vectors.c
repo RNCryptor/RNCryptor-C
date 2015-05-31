@@ -1,6 +1,6 @@
 /*
 ** WARNING: This file is auto generated. DO NOT MODIFY
-** 2015-05-29 22:22:25 -0400 by GenVectorTests-C.rb
+** 2015-05-30 20:36:55 -0400 by GenVectorTests-C.rb
 */
 #include "rncryptor_c.h"
 #include "mutils.h"
@@ -8,6 +8,9 @@
 /*
 ** Part of RNCryptor-C
 */
+void green(const char *str)
+{
+}
 void verify_v3_key(const char *title,
         const char *version,
         const char *enc_key_hex,
@@ -37,33 +40,19 @@ void verify_v3_key(const char *title,
     char
         errbuf[BUFSIZ];
 
-    (void) fprintf(stderr,"veriry_v3_key title: %s\n",title);
-
-    (void) fprintf(stderr,"title %s\n",title);
     enc_key_bin = mutils_hex_to_bin(enc_key_hex,strlen(enc_key_hex),
             &enc_key_bin_len);
-    (void) fprintf(stderr,"enc key: %d\n",enc_key_bin_len);
-    mutils_hex_print(stderr,enc_key_bin,enc_key_bin_len);
     hmac_key_bin = mutils_hex_to_bin(hmac_key_hex,strlen(hmac_key_hex),
             &hmac_key_bin_len);
-    (void) fprintf(stderr,"hmac key: %d\n",hmac_key_bin_len);
-    mutils_hex_print(stderr,hmac_key_bin,hmac_key_bin_len);
 
     iv_bin = mutils_hex_to_bin(iv_hex,strlen(iv_hex),
             &iv_bin_len);
-    (void) fprintf(stderr,"IV: %d\n",iv_bin_len);
-    mutils_hex_print(stderr,iv_bin,iv_bin_len);
-    (void) fprintf(stderr,"plaintext hex %02x",plaintext_hex);
+
     plaintext_bin = mutils_hex_to_bin(plaintext_hex,strlen(plaintext_hex),
             &plaintext_bin_len);
-    (void) fprintf(stderr,"Plain text len: %d\n",plaintext_bin_len);
-    mutils_hex_print(stderr,plaintext_bin,plaintext_bin_len);
-    (void) fprintf(stderr,"plaintext len: %d\n",plaintext_bin_len);
     ciphertext_bin = mutils_hex_to_bin(ciphertext_hex,strlen(ciphertext_hex),
             &ciphertext_bin_len);
-    (void) fprintf(stderr,"cipher text in test\n");
-    mutils_hex_print(stderr,ciphertext_bin,ciphertext_bin_len);
-    rncryptorc_set_debug(1);
+    rncryptorc_set_debug(0);
     cipher_text = rncryptorc_encrypt_data_with_key_iv(plaintext_bin,
         plaintext_bin_len,
         RNCRYPTOR3_KDF_ITER,
@@ -73,9 +62,14 @@ void verify_v3_key(const char *title,
         &cipher_text_len,
         errbuf,
         sizeof(errbuf)-1);
-    (void) fprintf(stderr,"errbuf: %s\n",errbuf);
-    (void) fprintf(stderr,"%s,len:%d\n",title,cipher_text_len);
-    mutils_hex_print(stderr,cipher_text,cipher_text_len);
+    if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
+    {
+        (void) fprintf(stderr," %s: \e[32mPASSED ✔ \e[0m\n",title);
+    }
+    else
+    {
+        (void) fprintf(stderr," %s: \e[31mFAILED\e[0m\n",title);
+    }
 }
 
 void verify_v3_password(const char *title,
@@ -94,7 +88,6 @@ void verify_v3_password(const char *title,
         *plaintext_bin,
         *ciphertext_bin;
     int
-        passowrd_len = 0,
         enc_salt_bin_len = 0,
         hmac_salt_bin_len = 0,
         plaintext_bin_len = 0,
@@ -112,32 +105,22 @@ void verify_v3_password(const char *title,
     enc_salt_bin = mutils_hex_to_bin(enc_salt_hex,strlen(enc_salt_hex),
             &enc_salt_bin_len);
 
-//    (void) fprintf(stderr,"ENC Salt:\n");
-//    mutils_hex_print(stderr,enc_salt_bin,enc_salt_bin_len);
-
     hmac_salt_bin = mutils_hex_to_bin(hmac_salt_hex,strlen(hmac_salt_hex),
             &hmac_salt_bin_len);
-//    (void) fprintf(stderr,"HMAC Salt:\n");
-//    mutils_hex_print(stderr,hmac_salt_bin,hmac_salt_bin_len);
 
     iv_bin = mutils_hex_to_bin(iv_hex,strlen(iv_hex),
             &iv_bin_len);
-//    (void) fprintf(stderr,"iv: %d\n",iv_bin_len);
-//    mutils_hex_print(stderr,iv_bin,iv_bin_len);
 
     plaintext_bin = mutils_hex_to_bin(plaintext_hex,strlen(plaintext_hex),
             &plaintext_bin_len);
-//    (void) fprintf(stderr,"Plaintext:\n");
-//    mutils_hex_print(stderr,plaintext_bin,plaintext_bin_len);
 
     ciphertext_bin = mutils_hex_to_bin(ciphertext_hex,strlen(ciphertext_hex),
             &ciphertext_bin_len);
-//    mutils_hex_print(stderr,ciphertext_bin,ciphertext_bin_len);
 
-//    rncryptorc_set_debug(1);
+    rncryptorc_set_debug(0);
     cipher_text = rncryptorc_encrypt_data_with_password_with_salts_and_iv(plaintext_bin,
             plaintext_bin_len,
-            10000,
+            RNCRYPTOR3_KDF_ITER,
             password,strlen(password),
             enc_salt_bin,
             hmac_salt_bin,
@@ -145,23 +128,56 @@ void verify_v3_password(const char *title,
             &cipher_text_len,
             errbuf,
             sizeof(errbuf)-1);
-//    mutils_hex_print(stderr,cipher_text,cipher_text_len);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr,">>>>>>>>>>>>>> %s: OK\n",title);
+        (void) fprintf(stderr," %s: \e[32mPASSED ✔ \e[0m\n",title);
     }
     else
     {
-        (void) fprintf(stderr,"%s: OK\n",title);
+        (void) fprintf(stderr,"  %s: FAILED\n",title);
     }
 }
 
+/*
+** this is actually a test for OpenSSL's
+** PKCS5_PBKDF2_HMAC_SHA1() function
+*/
 void verify_v3_kdf(const char *title,
         const char *version,
         const char *password,
         const char *salt_hex,
         const char *key_hex)
 {
+    unsigned char
+        key[32],
+        *salt_bin,
+        *key_bin;
+    int
+        rc,
+        salt_bin_len = 0,
+        key_bin_len = 0;
+
+    salt_bin = mutils_hex_to_bin(salt_hex,strlen(salt_hex),
+            &salt_bin_len);
+    key_bin = mutils_hex_to_bin(key_hex,strlen(key_hex),
+            &key_bin_len);
+    rc = PKCS5_PBKDF2_HMAC_SHA1(password,strlen(password),
+            salt_bin,
+            8,
+            RNCRYPTOR3_KDF_ITER,
+            32,
+            key); /* key is returend */
+    if (rc == 1)
+    {
+        if (memcmp(key_bin,key,32) == 0)
+        {
+        (void) fprintf(stderr," %s: \e[32mPASSED ✔ \e[0m\n",title);
+        }
+        else
+        {
+            (void) fprintf(stderr,"  %s: FAILED\n",title);
+        }
+    }
 }
 
 
@@ -320,11 +336,11 @@ void test_v3_key_All_fields_empty_or_zero(void)
   verify_v3_key(
     "All fields empty or zero",
     "3",
-    "00000000000000000000000000000000",
-    "00000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
     "00000000000000000000000000000000",
     "",
-    "03000000 00000000 00000000 00000000 00000143 db63ee66 b0cdff9f 69917680 151e0e67 e6f5aea8 30ced4af ef779fe7 e5b3767e b06ea81a 0bb8a7a0 bf62c6b0 0405");
+    "03000000 00000000 00000000 00000000 00001f78 8fe6d86c 31754969 7fbf0c07 fa436384 ac0ef35b 860b2ddb 2aba2fff 816b1fb3 a9c180f7 b43650ae c0d2b5f8 8e33");
 }
 
 
@@ -333,11 +349,11 @@ void test_v3_key_One_byte(void)
   verify_v3_key(
     "One byte",
     "3",
-    "000102030405060708090a0b0c0d0e0f",
-    "0102030405060708090a0b0c0d0e0f00",
+    "000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f",
+    "0102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00",
     "02030405060708090a0b0c0d0e0f0001",
     "01",
-    "03000203 04050607 08090a0b 0c0d0e0f 000198dc 7e36e7cc cb0cb7e8 2b048c46 0825ecd5 4ad9b093 3b236b74 8a1ce455 ee1ec4e9 3043f60b e2ed50dc cfb3c4b2 383c");
+    "03000203 04050607 08090a0b 0c0d0e0f 0001981b 22e7a644 8118d695 bd654f72 e9d6ed75 ec14ae2a a067eed2 a98a56e0 993dfe22 ab5887b3 f6e3cdd4 0767f519 5eb5");
 }
 
 
@@ -346,11 +362,11 @@ void test_v3_key_Exactly_one_block(void)
   verify_v3_key(
     "Exactly one block",
     "3",
-    "0102030405060708090a0b0c0d0e0f00",
-    "02030405060708090a0b0c0d0e0f0001",
+    "0102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00",
+    "02030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f0001",
     "030405060708090a0b0c0d0e0f000102",
     "000102030405060708090a0b0c0d0e0f",
-    "03000304 05060708 090a0b0c 0d0e0f00 01029228 f6538960 defc04a2 be30eee6 665ea738 f6c2f3fa 2b73c2ed bbe3a0d5 7f59d197 45313f9e a7ede5bb 6b1bd56f 2ff331dd d22f25dc 99bc11f3 d7ebbf49 14bc");
+    "03000304 05060708 090a0b0c 0d0e0f00 0102d2b1 77d61878 1829f564 53f739a2 d4f729f9 2b1a9c6c 50837864 74e16a22 c60f92b0 73454f79 76cdda04 3e09b117 66de05ff e05bc1dc a9522ea6 6e64ad25 bbbc");
 }
 
 
@@ -359,27 +375,30 @@ void test_v3_key_More_than_one_block(void)
   verify_v3_key(
     "More than one block",
     "3",
-    "02030405060708090a0b0c0d0e0f0001",
-    "030405060708090a0b0c0d0e0f000102",
+    "02030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f0001",
+    "030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102",
     "0405060708090a0b0c0d0e0f00010203",
     "000102030405060708090a0b0c0d0e0f 000102030405060708",
-    "03000405 06070809 0a0b0c0d 0e0f0001 0203a7c3 b4598b47 45fb62fb 266a54ee c7dcddc9 73d5ecb8 93586198 5407d656 2314d01f d9cddf52 859611d6 e917b6e2 40f82aa5 a508ddd8 8960df8b ceea3aeb e9de");
+    "03000405 06070809 0a0b0c0d 0e0f0001 02034c9b 98b425f1 d732644c b311278d 858e3d18 2a0789b8 6af7f741 34b6a27e 9d938617 741c0fb8 aaf094b3 b5b26f50 5da7bf19 13f6c17e 70273977 ae51323b 6f09");
 }
 
 int main(int argc,char **argv)
 {
+    (void)fprintf(stderr,"\e[1mVerify v3_kdf\e[0m\n");
     test_v3_kdf_One_byte();
     test_v3_kdf_Short_password();
     test_v3_kdf_Passphrase();
     test_v3_kdf_Long_passphrase();
     test_v3_kdf_Multibyte();
     test_v3_kdf_Mixed_language();
+    (void)fprintf(stderr,"\e[1mVerify v3_password\e[0m\n");
     test_v3_password_All_fields_empty_or_zero_with_one_byte_password_();
     test_v3_password_One_byte();
     test_v3_password_Exactly_one_block();
     test_v3_password_More_than_one_block();
     test_v3_password_Multibyte_password();
     test_v3_password_Longer_text_and_password();
+    (void)fprintf(stderr,"\e[1mVerify v3_key\e[0m\n");
     test_v3_key_All_fields_empty_or_zero();
     test_v3_key_One_byte();
     test_v3_key_Exactly_one_block();
