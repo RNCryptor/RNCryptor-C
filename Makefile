@@ -73,12 +73,12 @@ gen_tester:
 	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
 
 # sanity test
-test:
+test_simple:
 	+ruby tests/test.rb
 
 # test code must be pre-generated with target gen_test_vector_code
 # we use the test in windows as well but code is generated in Unix with ruby
-test_test_vectors:
+test:gen_tester
 	tests/test_with_test_vectors
 
 install: installdirs install-all
