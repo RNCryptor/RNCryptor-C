@@ -55,6 +55,10 @@ int main(int argc,char *argv[])
         {
             if (*decrypted_file != '-')
                 (void) fprintf(stderr,"%s:%d - Decrypted to %s\n",MCFL,decrypted_file);
+            else
+            {
+                (void) fflush(stdout);
+            }
             return(0);
         }
     }

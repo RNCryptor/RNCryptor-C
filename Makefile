@@ -6,7 +6,7 @@ srcdir = .
 
 top_srcdir = .
 CC= gcc
-DEFS= -DPACKAGE_NAME=\"\" -DPACKAGE_TARNAME=\"\" -DPACKAGE_VERSION=\"\" -DPACKAGE_STRING=\"\" -DPACKAGE_BUGREPORT=\"\" -DPACKAGE_URL=\"\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STRING_H=1 -DHAVE_STRINGS_H=1 -DHAVE_MEMORY_H=1 -DHAVE_MALLOC_H=1 -DHAVE_UNISTD_H=1 -DHAVE_CTYPE_H=1 -DHAVE_STDINT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_STDLIB_H=1 -DHAVE_FCNTL_H=1 -DHAVE_SYS_FILE_H=1 -DHAVE_LIMITS_H=1 -DHAVE_RAND_R=1 -DHAVE_SOCKET=1 -DHAVE_GETADDRINFO=1 -DSIZEOF_VOID_P=4 -DHAVE_OPENSSL=1 -DUNIX
+DEFS= -DPACKAGE_NAME=\"\" -DPACKAGE_TARNAME=\"\" -DPACKAGE_VERSION=\"\" -DPACKAGE_STRING=\"\" -DPACKAGE_BUGREPORT=\"\" -DPACKAGE_URL=\"\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STRING_H=1 -DHAVE_STRINGS_H=1 -DHAVE_MEMORY_H=1 -DHAVE_UNISTD_H=1 -DHAVE_CTYPE_H=1 -DHAVE_STDINT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_STDLIB_H=1 -DHAVE_FCNTL_H=1 -DHAVE_SYS_FILE_H=1 -DHAVE_LIMITS_H=1 -DHAVE_SYS_SYSLIMITS_H=1 -DHAVE_RAND_R=1 -DHAVE_SOCKET=1 -DHAVE_GETADDRINFO=1 -DSIZEOF_VOID_P=8 -DHAVE_OPENSSL=1 -DUNIX
 AR= /usr/bin/ar
 ARFLAGS = cruv
 RANLIB= ranlib
@@ -32,9 +32,9 @@ MAN1DIR = $(DESTDIR)$(man1dir)
 
 MANPAGE= 
 
-OPENSSL_DIR=/usr/
-OPENSSL_INC=-I/usr//include
-OPENSSL_LIBS=-L/usr//lib -lssl -lcrypto -ldl 
+OPENSSL_DIR=/usr/local/ssl/
+OPENSSL_INC=-I/usr/local/ssl//include
+OPENSSL_LIBS=-L/usr/local/ssl//lib -lssl -lcrypto -ldl 
 
 STRIP=/usr/bin/strip
 
@@ -66,8 +66,20 @@ examples: $(LIBNAME)
 	$(CC) $(CFLAGS) rn_encrypt_with_key.c -o rn_encrypt_with_key $(LIBS)
 	$(CC) $(CFLAGS) rn_decrypt_with_key.c -o rn_decrypt_with_key $(LIBS)
 
-test:
+
+# Generate the C code from RNCryptor's test vectors
+gen_tester:
+	(cd tests;./GenVectorTests-C.rb -o test_with_test_vectors.c test_vectors)
+	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
+
+# sanity test
+test_simple:
 	+ruby tests/test.rb
+
+# test code must be pre-generated with target gen_test_vector_code
+# we use the test in windows as well but code is generated in Unix with ruby
+test:gen_tester
+	tests/test_with_test_vectors
 
 install: installdirs install-all
 
@@ -88,4 +100,5 @@ install-all:
 	$(INSTALL_PROGRAM) rn_encrypt_with_key ${DESTDIR}${bindir}
 
 clean:
-	rm -f $(OBJS) *.o $(LIBNAME) rn_encrypt rn_decrypt rn_encrypt_with_key rn_decrypt_with_key
+	rm -f $(OBJS) *.o $(LIBNAME) rn_encrypt rn_decrypt rn_encrypt_with_key rn_decrypt_with_key \
+		tests/test_with_test_vectors

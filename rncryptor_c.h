@@ -134,10 +134,36 @@
 #endif
 #endif
 
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
+
+/* latest documentation: http://localhost:47899/index.html#apis */
+
+/*
+**  Turn on/off debug messages. Default is off
+**
+**  Parameters:
+**      d      Debug value. 1 or 0. To print the debug messages to stdout,
+**             call the funtion with 1 before calling any API
+**
+**  Return Values:
+**      None
+**
+**  Side Effects:
+**      none
+**
+**  Comments:
+**      Just a Helper function
+**
+**  Development History:
+**   muquit@muquit.com May-20-2015 - first cut
+*/
 void rncryptorc_set_debug(int d);
 
 /*
-**  Encrypt a file with a password
+**  Encrypt a file with a password. Encryption salt, HMAC salt and IV are 
+**  auto generaed
 **
 **  Parameters:
 **     infile_path    Path of the input file, can not be empty
@@ -162,7 +188,6 @@ void rncryptorc_set_debug(int d);
 **  Development History:
 **   muquit@muquit.com May-20-2015 - first cut
 */
-
 unsigned char *rncryptorc_encrypt_file_with_password(const char *infile_path,
         int kdf_iter,
         const char *password,
@@ -173,7 +198,7 @@ unsigned char *rncryptorc_encrypt_file_with_password(const char *infile_path,
 
 /*
 **  Encrypt a file with a encryption key. HMAC key is also requried for
-**  creating the HMAC-SHA256 digest
+**  creating the HMAC-SHA256 digest. IV is augo generated.
 **
 **  Parameters:
 **     infile_path    Path of the input file. Required.
@@ -260,7 +285,8 @@ unsigned char *rncryptorc_decrypt_file_with_password(const char *infile_path,
 **     In case of failure, errbuf will have the error message
 **
 **  Side Effects:
-**     Memory is allocated for returned data. It is caller's responsibility to free it.
+**     Memory is allocated for returned data. It is caller's 
+**     responsibility to free it.
 **
 **  Comments:
 **    The encryption is done as per RNCryptor data format specification v3.
@@ -277,7 +303,8 @@ unsigned char *rncryptorc_decrypt_file_with_key(const char *infile_path,
         int errbuf_len);
 
 /*
-**  Encrypt data with a password
+**  Encrypt data with a password. Encryption salt, HMAC salt and IV are
+**  auto generated.
 **
 **  Parameters:
 **     indata         Pointer to data to encrypt. Required
@@ -313,14 +340,58 @@ unsigned char *rncryptorc_encrypt_data_with_password(const unsigned char *indata
         int errbuf_len);
 
 /*
+**  Encrypt data with a password. Caller will pass encryption salt, hmac
+**  salt and iv
+**
+**  Parameters:
+**     indata         Pointer to data to encrypt. Required
+**     indata_len     Length of the data in bytes
+**     kdf_iter       PBKDF2 iterations. Must Pass RNCRYPTOR3_KDF_ITER for RNCryptor
+**                    data format sepc v3
+**     password       Password for encryption, can not be empty
+**     password_len   Length of the password
+**     encr_salt_8    8 byte long encryption salt. Required.
+**     hmac_salt_8    8 byte long hmac salt. Required.
+**     iv_16          16 byte long iv. Required.
+**     outdata_len    Returns. Length of the returned encryped data
+**     errbuf         Buffer to write error to
+**     errbuf_len     Length of errbuf
+**
+**  Return Values:
+**     Pointer to encyrped data on success, NULL on failure.
+**     In case of failure errbuf will have the error message
+**
+**  Side Effects:
+**     Memory is allocated for returned data. It is caller's responsibility to free it.
+**
+**  Comments:
+**     The encryption is done as per RNCryptor data format specification v3.
+**
+**  Development History:
+**   muquit@muquit.com May-30-2015 - first cut
+*/
+unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const unsigned char *indata,
+        int indata_len,
+        int kdf_iter,
+        const char *password,
+        int password_length,
+        unsigned char *encr_salt_8,
+        unsigned char *hmac_salt_8,
+        unsigned char *iv_16,
+        int *outdata_len,
+        char *errbuf,
+        int errbuf_len);
+
+
+/*
 **  Encrypt data with a encryption key. HMAC key is also requried for
-**  creating the HMAC-SHA256 digest
+**  creating the HMAC-SHA256 digest. IV is auto generatd.
 **
 **  Parameters:
 **     indata         Pointer to input data to encrypt. Required.
 **     indata_len     Length of the input data in bytes
-**     kdf_iter       PBKDF2 iterations. Must Pass RNCRYPTOR3_KDF_ITER for RNCryptor 
-**                    data format sepc v3
+**     kdf_iter       PBKDF2 iterations. Must Pass RNCRYPTOR3_KDF_ITER for 
+**                    RNCryptor data format sepc v3
 **     encryption_key 32 byte long encryption key. Required.
 **     hmac_key       32 byte long HMAC key. Required.
 **     outdata_len    Returns. Length of the returned encryped data
@@ -351,6 +422,46 @@ unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
         int errbuf_len);
 
 /*
+**  Encrypt data with a encryption key. Caller will pass encryption key, 
+**  hmac key and iv
+**
+**  Parameters:
+**     indata         Pointer to input data to encrypt. Required.
+**     indata_len     Length of the input data in bytes
+**     kdf_iter       PBKDF2 iterations. Must Pass RNCRYPTOR3_KDF_ITER for 
+**                    RNCryptor data format sepc v3
+**     encr_key_32    32 byte long encryption key. Required.
+**     hmac_key_32    32 byte long HMAC key. Required.
+**     iv_16          16 byte long IV. Requied.
+**     outdata_len    Returns. Length of the returned encryped data
+**     errbuf         Buffer to write error to
+**     errbuf_len     Length of errbuf
+**
+**  Return Values:
+**     Pointer to encyrped data on success, NULL on failure
+**     In case of failure errbuf will have the error message
+**
+**  Side Effects:
+**     Memory is allocated for returned data. It is caller's 
+**     responsibility to free it.
+**
+**  Comments:
+**     The encryption is done as per RNCryptor data format specification v3.
+**
+**  Development History:
+**   muquit@muquit.com May-30-2015 - first cut
+*/
+unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
+        int indata_len,
+        int kdf_iter,
+        const unsigned char *encryption_key_32,
+        const unsigned char *hmac_key_32,
+        const unsigned char *iv_16,
+        int *outdata_len,
+        char *errbuf,
+        int errbuf_len);
+
+/*
 **  Decrypt data with a password
 **
 **  Parameters:
@@ -377,7 +488,6 @@ unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
 **  Development History:
 **   muquit@muquit.com May-20-2015 - first cut
 */
-
 unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata,
         int indata_len,
         int kdf_iter,
@@ -473,8 +583,6 @@ typedef void (*rncryptorc_log_func)(const char *fmt,va_list args);
 void rncryptorc_log_error(const char *fmt,...);
 void rncryptorc_log_info(const char *fmt,...);
 void rncryptorc_log_debug(const char *fmt,...);
-
-
 /*
 ** show usage for examples
 */
