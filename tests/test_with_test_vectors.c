@@ -1,16 +1,15 @@
 /*
 ** WARNING: This file is auto generated. DO NOT MODIFY
-** 2015-05-30 20:36:55 -0400 by GenVectorTests-C.rb
+** 2015-05-31 10:53:48 -0400 by GenVectorTests-C.rb
 */
 #include "rncryptor_c.h"
 #include "mutils.h"
 
 /*
-** Part of RNCryptor-C
+** Part of RNCryptor-C. Code for testing RNCryptor's test vectors
+** This block of code comes from verify.c
 */
-void green(const char *str)
-{
-}
+/************** block starts ******************/
 void verify_v3_key(const char *title,
         const char *version,
         const char *enc_key_hex,
@@ -64,7 +63,7 @@ void verify_v3_key(const char *title,
         sizeof(errbuf)-1);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr," %s: \e[32mPASSED ✔ \e[0m\n",title);
+        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
     }
     else
     {
@@ -130,7 +129,7 @@ void verify_v3_password(const char *title,
             sizeof(errbuf)-1);
     if (memcmp(ciphertext_bin,cipher_text,cipher_text_len) == 0)
     {
-        (void) fprintf(stderr," %s: \e[32mPASSED ✔ \e[0m\n",title);
+        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
     }
     else
     {
@@ -171,7 +170,7 @@ void verify_v3_kdf(const char *title,
     {
         if (memcmp(key_bin,key,32) == 0)
         {
-        (void) fprintf(stderr," %s: \e[32mPASSED ✔ \e[0m\n",title);
+        (void) fprintf(stderr," %s: \e[32mPASSED\e[0m\n",title);
         }
         else
         {
@@ -179,6 +178,7 @@ void verify_v3_kdf(const char *title,
         }
     }
 }
+/************** block ends ******************/
 
 
 void test_v3_kdf_One_byte(void)

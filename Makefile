@@ -32,9 +32,9 @@ MAN1DIR = $(DESTDIR)$(man1dir)
 
 MANPAGE= 
 
-OPENSSL_DIR=/usr/local/ssl//
-OPENSSL_INC=-I/usr/local/ssl///include
-OPENSSL_LIBS=-L/usr/local/ssl///lib -lssl -lcrypto -ldl 
+OPENSSL_DIR=/usr/local/ssl/
+OPENSSL_INC=-I/usr/local/ssl//include
+OPENSSL_LIBS=-L/usr/local/ssl//lib -lssl -lcrypto -ldl 
 
 STRIP=/usr/bin/strip
 
@@ -66,17 +66,19 @@ examples: $(LIBNAME)
 	$(CC) $(CFLAGS) rn_encrypt_with_key.c -o rn_encrypt_with_key $(LIBS)
 	$(CC) $(CFLAGS) rn_decrypt_with_key.c -o rn_decrypt_with_key $(LIBS)
 
-test:
-	+ruby tests/test.rb
-	+tests/test_with_test_vectors
 
-gen_test_vector_code:
+# Generate the C code from RNCryptor's test vectors
+gen_tester:
 	(cd tests;./GenVectorTests-C.rb -o test_with_test_vectors.c test_vectors)
 	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
 
+# sanity test
+test:
+	+ruby tests/test.rb
+
 # test code must be pre-generated with target gen_test_vector_code
 # we use the test in windows as well but code is generated in Unix with ruby
-test_vectors: gen_test_vector_code
+test_test_vectors:
 	tests/test_with_test_vectors
 
 install: installdirs install-all

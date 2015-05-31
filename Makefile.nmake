@@ -31,5 +31,11 @@ EXAMPLES:
 	$(CC) $(CFLAGS) rn_encrypt_with_key.c $(LIBS) /Fern_encrypt_with_key.exe
 	$(CC) $(CFLAGS) rn_decrypt_with_key.c $(LIBS) /Fern_decrypt_with_key.exe
 
+TESTER:
+	$(CC) $(CFLAGS) tests/test_with_test_vectors.c $(LIBS) /Fetests/test_with_test_vectors.exe
+
+TEST:
+	tests/test_with_test_vectors.exe
+
 clean:
 	del $(OBJS) $(LIBRARY) *.bak

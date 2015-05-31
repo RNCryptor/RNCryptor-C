@@ -82,6 +82,11 @@ do \
 void rncryptorc_set_debug(int d)
 {
     sdebug = d;
+    if (d == 1)
+    {
+        (void) fprintf(stderr," (Compiled with OpenSSL version: %s)\n",
+                   SSLeay_version(SSLEAY_VERSION));
+    }
 }
 
 /*
@@ -335,7 +340,7 @@ static RNCryptorInfo *decode_encrypted_blob(MutilsBlob *blob)
 
     /* done reading header. now find out the length of cypther text */
     ci->cipher_text_length = blob ->length - sizeof(ci->hmac) - ci->header_size;
-    log_debug("%s:%d - Cipher text length %lu",
+    log_debug("%s:%d  - Cipher text length %lu",
             MCFL,
             ci->cipher_text_length);
 
@@ -573,7 +578,7 @@ unsigned char *rncryptorc_encrypt_data_with_password(const unsigned char *indata
     }
     mutils_write_blob(blob,16,ci->iv);
 
-    log_debug("%s:%d - Deriving HMAC key with salt using iterations %d",
+    log_debug("%s:%d - Deriving HMAC key with salt, iterations %d",
             MCFL,
             ci->kdf_iter);
     /* Derive HMAC key from password using hmac salt and iteration as per RFC2898 */
@@ -591,7 +596,7 @@ unsigned char *rncryptorc_encrypt_data_with_password(const unsigned char *indata
         goto ExitProcessing;
     }
 
-    log_debug("%s:%d - Deriving Cipher key with salt using iterations %d",
+    log_debug("%s:%d - Deriving Cipher key with salt, iterations %d",
             MCFL,
             ci->kdf_iter);
     /* Derive cipher key from password using encr salt and iteration as per RFC2898 */
@@ -751,7 +756,7 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
     ci->options = 0x01;
 
     /* Derive cipher key from password using encr salt and iteration as per RFC2898 */
-    log_debug("%s:%d - Deriving Cipher key with salt using iterations %d",
+    log_debug("%s:%d - Deriving Cipher key with salt, iterations %d",
             MCFL,
             kdf_iter);
 
@@ -810,7 +815,7 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
     /* 16 byte iv */
     mutils_write_blob(blob,16,iv_16);
 
-    log_debug("%s:%d - Deriving HMAC key with salt using iterations %d",
+    log_debug("%s:%d - Deriving HMAC key with salt, iterations %d",
             MCFL,
             kdf_iter);
     /* Derive HMAC key from password using hmac salt and iteration as per RFC2898 */
@@ -1313,7 +1318,7 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
     log_debug("%s:%d - HMAC verified",MCFL);
 
     /* Derive cipher key from password using encr salt and iteration as per RFC2898 */
-    log_debug("%s:%d - Deriving Cipher key with salt using iteration %d",
+    log_debug("%s:%d - Deriving Cipher key with salt, iteration %d",
             MCFL,
             kdf_iter);
     rc = PKCS5_PBKDF2_HMAC_SHA1(password,password_length,
