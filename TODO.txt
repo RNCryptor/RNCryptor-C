@@ -1,1 +1,2 @@
-Test using RNCryptor's test vectors
+Nothing pending at this time
+-- May-31-2015 
