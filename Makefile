@@ -100,4 +100,5 @@ install-all:
 	$(INSTALL_PROGRAM) rn_encrypt_with_key ${DESTDIR}${bindir}
 
 clean:
-	rm -f $(OBJS) *.o $(LIBNAME) rn_encrypt rn_decrypt rn_encrypt_with_key rn_decrypt_with_key
+	rm -f $(OBJS) *.o $(LIBNAME) rn_encrypt rn_decrypt rn_encrypt_with_key rn_decrypt_with_key \
+		tests/test_with_test_vectors

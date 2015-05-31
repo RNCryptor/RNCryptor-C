@@ -38,4 +38,4 @@ TEST:TESTER
 	tests\test_with_test_vectors.exe
 
 clean:
-	del $(OBJS) $(LIBRARY) *.bak
+	del $(OBJS) $(LIBRARY) *.bak *.exe tests\test_with_test_vectors.exe
