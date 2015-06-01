@@ -10,7 +10,7 @@
   format specificatoin v 3.
 
     RNCryptor homepage: https://github.com/RNCryptor/RNCryptor
-  RNCryptor-C homepage: https://github.com/muquit/RNCryptor-C
+  RNCryptor-C homepage: https://github.com/RNCryptor/RNCryptor-C
 
  */
 
@@ -28,12 +28,12 @@
 #define MCFL             __FILE__,__LINE__
 #define MJL              __LINE__
 
-#define RNCRYPTORC_VERSION_S          "1.01"
+#define RNCRYPTORC_VERSION_S          "1.03"
 #define RNCRYPTOR_DATA_FORMAT_VERSION 0x03
 #define RNCRYPTOR3_KDF_ITER           10000
 
 #define RNCRYPTOR_URL  "https://github.com/RNCryptor/RNCryptor"
-#define RNCRYPTORC_URL "https://github.com/muquit/RNCryptor-C"
+#define RNCRYPTORC_URL "https://github.com/RNCryptor/RNCryptor-C"
 
 #define SUCCESS 0x00
 #define FAILURE 0x01
@@ -138,14 +138,14 @@
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 
-/* latest documentation: http://localhost:47899/index.html#apis */
+/* latest documentation is online: https://github.com/RNCryptor/RNCryptor-C */
 
 /*
 **  Turn on/off debug messages. Default is off
 **
 **  Parameters:
 **      d      Debug value. 1 or 0. To print the debug messages to stdout,
-**             call the funtion with 1 before calling any API
+**             call the function with 1 before calling any API
 **
 **  Return Values:
 **      None

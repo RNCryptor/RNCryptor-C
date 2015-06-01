@@ -1,6 +1,6 @@
 /*
 ** WARNING: This file is auto generated. DO NOT MODIFY
-** 2015-06-01 13:13:58 -0400 by GenVectorTests-C.rb
+** 2015-06-01 17:21:54 -0400 by GenVectorTests-C.rb
 */
 #include "rncryptor_c.h"
 #include "mutils.h"
