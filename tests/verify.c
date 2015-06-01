@@ -3,6 +3,7 @@
 
 /*
 ** Part of RNCryptor-C. Code for testing RNCryptor's test vectors
+** Note: No memory is freed. mutils_hex_to_bin() allocates memory.
 ** This block of code comes from verify.c
 */
 /************** block starts ******************/

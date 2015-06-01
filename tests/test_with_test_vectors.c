@@ -1,12 +1,13 @@
 /*
 ** WARNING: This file is auto generated. DO NOT MODIFY
-** 2015-05-31 12:57:10 -0400 by GenVectorTests-C.rb
+** 2015-06-01 13:13:58 -0400 by GenVectorTests-C.rb
 */
 #include "rncryptor_c.h"
 #include "mutils.h"
 
 /*
 ** Part of RNCryptor-C. Code for testing RNCryptor's test vectors
+** Note: No memory is freed. mutils_hex_to_bin() allocates memory.
 ** This block of code comes from verify.c
 */
 /************** block starts ******************/
