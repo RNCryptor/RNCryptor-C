@@ -73,7 +73,7 @@ gen_tester:
 	$(CC) $(CFLAGS) tests/test_with_test_vectors.c -o tests/test_with_test_vectors $(LIBS)
 
 # sanity test
-test_simple:
+test_simple:examples
 	+ruby tests/test.rb
 
 # test code must be pre-generated with target gen_test_vector_code

@@ -66,6 +66,7 @@ int main(int argc,char *argv[])
     }
 
     memset(errbuf,0,sizeof(errbuf));
+    rncryptorc_set_debug(1);
     outdata = rncryptorc_encrypt_file_with_key(plain_file,
             RNCRYPTOR3_KDF_ITER,
             encr_key,
