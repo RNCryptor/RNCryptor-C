@@ -77,6 +77,24 @@ do \
         goto ExitProcessing; \
     }\
 }while(0)
+/*
+** from: https://cryptocoding.net/index.php/Coding_rules#Compare_secret_strings_in_constant_time
+** compare in constant time
+** Issue# 1
+*/
+int util_cmp_const(const void * a, const void *b, const size_t size) 
+{
+  const unsigned char *_a = (const unsigned char *) a;
+  const unsigned char *_b = (const unsigned char *) b;
+  unsigned char result = 0;
+  size_t i;
+ 
+  for (i = 0; i < size; i++) {
+    result |= _a[i] ^ _b[i];
+  }
+ 
+  return result; /* returns 0 if equal, nonzero otherwise */
+}
 
 /* id is 0 or 1 */
 void rncryptorc_set_debug(int d)
@@ -426,7 +444,8 @@ static int verify_hmac(RNCryptorInfo *ci,const char *password, int password_len)
     HMAC_Update(&hmac_ctx,ci->blob->data,ci->blob->length - 32);
     HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
     HMAC_CTX_cleanup(&hmac_ctx);
-    rc = memcmp(ci->hmac,hmac_sha256,32);
+/*    rc = memcmp(ci->hmac,hmac_sha256,32); */
+    rc = util_cmp_const(ci->hmac,hmac_sha256,32);
     if (rc != 0)
     {
         log_err("ERROR: Could not verify HMAC");
