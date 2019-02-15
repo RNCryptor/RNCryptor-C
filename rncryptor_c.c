@@ -1015,6 +1015,7 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
         goto ExitProcessing;
     }
     ci->options = 0x01;
+    ci->kdf_iter = kdf_iter;
 
     rc = verify_rncryptor_format(ci->version,ci->options);
     if (rc != SUCCESS)
@@ -1146,6 +1147,8 @@ unsigned char *rncryptorc_decrypt_data_with_key(const unsigned char *indata,
         goto ExitProcessing;
     }
     log_debug("Decoded successfully");
+    
+    ci->kdf_iter = kdf_iter;
 
     /*
     ** copy the keys to our data structure, this way we don't have
