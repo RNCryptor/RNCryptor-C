@@ -28,9 +28,10 @@
 #define MCFL             __FILE__,__LINE__
 #define MJL              __LINE__
 
-#define RNCRYPTORC_VERSION_S          "1.05"
-#define RNCRYPTOR_DATA_FORMAT_VERSION 0x03
-#define RNCRYPTOR3_KDF_ITER           10000
+#define RNCRYPTORC_VERSION_S            "1.06"
+#define RNCRYPTOR_DATA_FORMAT_VERSION   0x03
+#define RNCRYPTOR_DATA_FORMAT_VERSION_2 0x02
+#define RNCRYPTOR3_KDF_ITER             10000
 
 #define RNCRYPTOR_URL  "https://github.com/RNCryptor/RNCryptor"
 #define RNCRYPTORC_URL "https://github.com/RNCryptor/RNCryptor-C"

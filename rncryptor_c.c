@@ -328,7 +328,7 @@ static RNCryptorInfo *decode_encrypted_blob(MutilsBlob *blob)
     /* version */
     ci->version = mutils_read_blob_byte(blob);
     /* update code when version changes */
-    if (ci->version != RNCRYPTOR_DATA_FORMAT_VERSION)
+    if (ci->version != RNCRYPTOR_DATA_FORMAT_VERSION && ci->version != RNCRYPTOR_DATA_FORMAT_VERSION_2)
     {
         log_err("Error: Unsupported RNCryptor data format version %02x",ci->version);
         goto ExitProcessing;
@@ -1305,7 +1305,7 @@ ExitProcessing:
 /* return SUCCESS or FAILURE */
 int verify_rncryptor_format(unsigned char version,unsigned char options)
 {
-    if (version == 0x03 && (options == 0x00 || options == 0x01))
+    if ((version == 0x03 || version == 0x02) && (options == 0x00 || options == 0x01))
     {
         return SUCCESS;
     }
