@@ -28,7 +28,7 @@
 #define MCFL             __FILE__,__LINE__
 #define MJL              __LINE__
 
-#define RNCRYPTORC_VERSION_S          "1.05"
+#define RNCRYPTORC_VERSION_S          "1.06"
 #define RNCRYPTOR_DATA_FORMAT_VERSION 0x03
 #define RNCRYPTOR3_KDF_ITER           10000
 

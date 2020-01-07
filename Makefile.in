@@ -53,7 +53,7 @@ OBJS = rncryptor_c.o mutils.o
 	rm -f $@
 	$(CC) $(CFLAGS) -c $*.c
 
-all: $(LIBNAME)
+all: $(LIBNAME) examples
 
 $(LIBNAME) : $(OBJS)
 	rm -f $@

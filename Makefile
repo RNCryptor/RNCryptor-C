@@ -12,7 +12,7 @@ ARFLAGS = cruv
 RANLIB= ranlib
 LIBNAME= librncryptorc.a
 PROGNAME= 
-INSTALL = /usr/bin/install -c
+INSTALL = /usr/local/bin/ginstall -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_EXEC = @INSTALL_EXEC@
@@ -53,7 +53,7 @@ OBJS = rncryptor_c.o mutils.o
 	rm -f $@
 	$(CC) $(CFLAGS) -c $*.c
 
-all: $(LIBNAME)
+all: $(LIBNAME) examples
 
 $(LIBNAME) : $(OBJS)
 	rm -f $@
