@@ -364,7 +364,7 @@ static RNCryptorInfo *decode_encrypted_blob(MutilsBlob *blob)
             ci->cipher_text_length);
 
     ci->cipher_text =
-        (unsigned char *)malloc(ci->cipher_text_length * sizeof(unsigned char *));;
+        (unsigned char *)malloc(ci->cipher_text_length * sizeof(unsigned char *));
     CHECK_MALLOC(ci->cipher_text);
     mutils_read_blob(blob,ci->cipher_text_length,ci->cipher_text);
     mutils_read_blob(blob,sizeof(ci->hmac),ci->hmac);

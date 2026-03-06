@@ -32,9 +32,9 @@ MAN1DIR = $(DESTDIR)$(man1dir)
 
 MANPAGE= 
 
-OPENSSL_DIR=/usr/local/ssl/
-OPENSSL_INC=-I/usr/local/ssl//include
-OPENSSL_LIBS=-L/usr/local/ssl//lib -lssl -lcrypto -ldl 
+OPENSSL_DIR=/usr/local/Cellar/openssl@3/3.6.1/
+OPENSSL_INC=-I/usr/local/Cellar/openssl@3/3.6.1//include
+OPENSSL_LIBS=-L/usr/local/Cellar/openssl@3/3.6.1//lib -lssl -lcrypto 
 
 STRIP=/usr/bin/strip
 
