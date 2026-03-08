@@ -4,6 +4,9 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/params.h>
+#endif
 
 /*
 ** as per:
@@ -66,6 +69,9 @@ static void free_rncryptor_info(RNCryptorInfo *ci);
 static RNCryptorInfo *decode_encrypted_blob(MutilsBlob *blob);
 static int verify_hmac(RNCryptorInfo *ci,const char *password,
         int password_len);
+static int compute_hmac_sha256(const unsigned char *key, int key_len,
+        const unsigned char *data, size_t data_len,
+        unsigned char *out_hmac, unsigned int *out_len);
 /* function prototypes -ends-*/
 
 #define CHECK_MALLOC(p) \
@@ -77,6 +83,7 @@ do \
         goto ExitProcessing; \
     }\
 }while(0)
+
 /*
 ** from: https://cryptocoding.net/index.php/Coding_rules#Compare_secret_strings_in_constant_time
 ** compare in constant time
@@ -96,14 +103,95 @@ int util_cmp_const(const void * a, const void *b, const size_t size)
   return result; /* returns 0 if equal, nonzero otherwise */
 }
 
+/*
+** Compute HMAC-SHA256.
+** Handles LibreSSL, OpenSSL < 1.1.0, OpenSSL 3.x (EVP_MAC), and OpenSSL 1.1.x.
+** Returns SUCCESS or FAILURE.
+*/
+static int compute_hmac_sha256(const unsigned char *key, int key_len,
+        const unsigned char *data, size_t data_len,
+        unsigned char *out_hmac, unsigned int *out_len)
+{
+#ifdef LIBRESSL_VERSION_NUMBER
+    const EVP_MD *sha256 = EVP_sha256();
+    HMAC_CTX hmac_ctx;
+    HMAC_CTX_init(&hmac_ctx);
+    HMAC_Init(&hmac_ctx, key, key_len, sha256);
+    HMAC_Update(&hmac_ctx, data, data_len);
+    HMAC_Final(&hmac_ctx, out_hmac, out_len);
+    HMAC_CTX_cleanup(&hmac_ctx);
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
+    const EVP_MD *sha256 = EVP_sha256();
+    HMAC_CTX hmac_ctx;
+    HMAC_CTX_init(&hmac_ctx);
+    HMAC_Init(&hmac_ctx, key, key_len, sha256);
+    HMAC_Update(&hmac_ctx, data, data_len);
+    HMAC_Final(&hmac_ctx, out_hmac, out_len);
+    HMAC_CTX_cleanup(&hmac_ctx);
+#elif OPENSSL_VERSION_NUMBER >= 0x30000000L
+   /*
+   ** OpenSSL 3.x: use EVP_MAC API (HMAC_CTX_* deprecated in 3.0)
+   */
+    {
+        EVP_MAC *mac = NULL;
+        EVP_MAC_CTX *mac_ctx = NULL;
+        OSSL_PARAM params[2];
+        char digest_name[] = "SHA256";
+        size_t hmac_len_t = 32;
+
+        mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+        if (!mac)
+        {
+            log_err("ERROR: EVP_MAC_fetch failed\n");
+            return FAILURE;
+        }
+        mac_ctx = EVP_MAC_CTX_new(mac);
+        if (!mac_ctx)
+        {
+            EVP_MAC_free(mac);
+            log_err("ERROR: EVP_MAC_CTX_new failed\n");
+            return FAILURE;
+        }
+        params[0] = OSSL_PARAM_construct_utf8_string("digest", digest_name, 0);
+        params[1] = OSSL_PARAM_construct_end();
+        EVP_MAC_init(mac_ctx, key, (size_t)key_len, params);
+        EVP_MAC_update(mac_ctx, data, data_len);
+        EVP_MAC_final(mac_ctx, out_hmac, &hmac_len_t, 32);
+        *out_len = (unsigned int)hmac_len_t;
+        EVP_MAC_CTX_free(mac_ctx);
+        EVP_MAC_free(mac);
+    }
+#else
+    /* OpenSSL 1.1.x */
+    {
+        HMAC_CTX *hmac_ctx = HMAC_CTX_new();
+        if (!hmac_ctx)
+        {
+            log_err("ERROR: HMAC_CTX_new failed\n");
+            return FAILURE;
+        }
+        HMAC_Init_ex(hmac_ctx, key, key_len, EVP_sha256(), NULL);
+        HMAC_Update(hmac_ctx, data, data_len);
+        HMAC_Final(hmac_ctx, out_hmac, out_len);
+        HMAC_CTX_free(hmac_ctx);
+    }
+#endif
+    return SUCCESS;
+}
+
 /* id is 0 or 1 */
 void rncryptorc_set_debug(int d)
 {
     sdebug = d;
     if (d == 1)
     {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        (void) fprintf(stderr," (Compiled with OpenSSL version: %s)\n",
+                   OpenSSL_version(OPENSSL_VERSION));
+#else
         (void) fprintf(stderr," (Compiled with OpenSSL version: %s)\n",
                    SSLeay_version(SSLEAY_VERSION));
+#endif
     }
 }
 
@@ -119,25 +207,20 @@ static void log_err(const char *fmt, ...)
     vfprintf(stderr,fmt,args);
     va_end(args);
 }
+
 static void log_debug(const char *fmt, ...)
 {
-    va_list
-        args;
+    va_list args;
+    char buf[1024];
 
-    char
-        buf2[1024],
-        buf[1024];
     if (!sdebug)
-    {
         return;
-    }
 
     va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
-    snprintf(buf2, sizeof(buf2), "%s: %s", libname, buf);
-    (void) fprintf(stderr,"%s\n",buf2);
-    (void)fflush(stderr);
     va_end(args);
+    (void)fprintf(stderr, "%s: %s\n", libname, buf);
+    (void)fflush(stderr);
 }
 
 unsigned char *rncryptorc_decrypt_file_with_password(const char *infile_path,
@@ -318,6 +401,9 @@ static RNCryptorInfo *decode_encrypted_blob(MutilsBlob *blob)
     RNCryptorInfo
         *ci = NULL;
 
+    size_t
+        min_required;
+
     ci = allocate_rncryptor_info();
     if (!ci)
     {
@@ -357,14 +443,24 @@ static RNCryptorInfo *decode_encrypted_blob(MutilsBlob *blob)
     /* iv */
     mutils_read_blob(blob,sizeof(ci->iv),ci->iv);
 
-    /* done reading header. now find out the length of cypther text */
-    ci->cipher_text_length = blob ->length - sizeof(ci->hmac) - ci->header_size;
-    log_debug("%s:%d  - Cipher text length %lu",
+    /* validate blob length before subtracting to avoid unsigned underflow */
+    min_required = (size_t)sizeof(ci->hmac) + (size_t)ci->header_size;
+    if (blob->length < min_required)
+    {
+        log_err("ERROR: Blob too small (%lu bytes) for header and HMAC",
+                (unsigned long)blob->length);
+        goto ExitProcessing;
+    }
+
+    /* done reading header. now find out the length of cipher text */
+    ci->cipher_text_length = blob->length - sizeof(ci->hmac) - ci->header_size;
+    log_debug("%s:%d - Cipher text length %lu",
             MCFL,
             ci->cipher_text_length);
 
+    /* v1.07 fixed: sizeof(unsigned char) not sizeof(unsigned char *) */
     ci->cipher_text =
-        (unsigned char *)malloc(ci->cipher_text_length * sizeof(unsigned char *));
+        (unsigned char *)malloc(ci->cipher_text_length * sizeof(unsigned char));
     CHECK_MALLOC(ci->cipher_text);
     mutils_read_blob(blob,ci->cipher_text_length,ci->cipher_text);
     mutils_read_blob(blob,sizeof(ci->hmac),ci->hmac);
@@ -386,33 +482,15 @@ ExitProcessing:
 }
 
 /*
-** returns SUCCESS or FAILRUE
+** returns SUCCESS or FAILURE
 ** if key based encryption/decryption is used, pass ci->hmac_key, also pass
-** password as NULL and length of pasword as 0
+** password as NULL and length of password as 0
 */
 static int verify_hmac(RNCryptorInfo *ci,const char *password, int password_len)
 {
     unsigned char
         hmac_sha256[32];
 
-
-#ifdef LIBRESSL_VERSION_NUMBER
-    const EVP_MD
-        *sha256=NULL;
-    HMAC_CTX
-        hmac_ctx;
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    const EVP_MD
-        *sha256=NULL;
-    HMAC_CTX
-        hmac_ctx;
-#else
-    /* OpenSSL 1.1.x*/
-    HMAC_CTX
-        *hmac_ctx;
-#endif
-#endif
     unsigned int
         hmac_len;
 
@@ -432,7 +510,7 @@ static int verify_hmac(RNCryptorInfo *ci,const char *password, int password_len)
                 sizeof(ci->hmac_salt),
                 ci->kdf_iter,
                 sizeof(ci->hmac_key),
-                ci->hmac_key); /* ci->hmac_key is returend */
+                ci->hmac_key); /* ci->hmac_key is returned */
 
         if (rc != 1)
         {
@@ -445,33 +523,18 @@ static int verify_hmac(RNCryptorInfo *ci,const char *password, int password_len)
         /* caller must pass ci->hmac_key */
     }
 
-
     /*
     ** calculate HMAC-SHA256 of (data-32) and compare that with the HMAC-SHA256 
     ** which is the last 32 bytes of the data
     */
-#ifdef LIBRESSL_VERSION_NUMBER
-    sha256 = EVP_sha256();
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,ci->hmac_key,32,sha256);
-    HMAC_Update(&hmac_ctx,ci->blob->data,ci->blob->length - 32);
-    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
-    HMAC_CTX_cleanup(&hmac_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
-    sha256 = EVP_sha256();
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,ci->hmac_key,32,sha256);
-    HMAC_Update(&hmac_ctx,ci->blob->data,ci->blob->length - 32);
-    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
-    HMAC_CTX_cleanup(&hmac_ctx);
-#else
-	hmac_ctx = HMAC_CTX_new();
-	HMAC_Init_ex(hmac_ctx,ci->hmac_key,32,EVP_sha256(),NULL);
-	HMAC_Update(hmac_ctx,ci->blob->data,ci->blob->length - 32);
-	HMAC_Final(hmac_ctx,hmac_sha256,&hmac_len);
-#endif
-#endif
+    rc = compute_hmac_sha256(ci->hmac_key, 32,
+            ci->blob->data, ci->blob->length - 32,
+            hmac_sha256, &hmac_len);
+    if (rc != SUCCESS)
+    {
+        goto ExitProcessing;
+    }
+
     rc = util_cmp_const(ci->hmac,hmac_sha256,32);
     if (rc != 0)
     {
@@ -591,34 +654,20 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
     MutilsBlob
         *blob = NULL;
 
-
 #ifdef LIBRESSL_VERSION_NUMBER
-    const EVP_MD
-        *sha256 = NULL;
     EVP_CIPHER_CTX
         cipher_ctx;
-    HMAC_CTX
-        hmac_ctx;
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    const EVP_MD
-        *sha256 = NULL;
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_CIPHER_CTX
         cipher_ctx;
-    HMAC_CTX
-        hmac_ctx;
 #else
-    /* OpenSSL 1.1.x*/
+    /* OpenSSL 1.1.x and 3.x */
     EVP_CIPHER_CTX
-        *cipher_ctx;
-    HMAC_CTX
-        *hmac_ctx;
-#endif
+        *cipher_ctx = NULL;
 #endif
 
     int
         rc=FAILURE;
-
 
     int
         outlen1 = 0,
@@ -686,7 +735,7 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
             8,
             kdf_iter,
             32,
-            encr_key); /* encr_key is returend */
+            encr_key); /* encr_key is returned */
     if (rc != 1)
     {
         log_err("ERROR: Could not derive key from password with encr salt and iter");
@@ -698,15 +747,13 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
 #ifdef LIBRESSL_VERSION_NUMBER
     EVP_EncryptInit(&cipher_ctx,EVP_aes_256_cbc(),encr_key,iv_16);
     blocksize = EVP_CIPHER_CTX_block_size(&cipher_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_EncryptInit(&cipher_ctx,EVP_aes_256_cbc(),encr_key,iv_16);
     blocksize = EVP_CIPHER_CTX_block_size(&cipher_ctx);
 #else
     cipher_ctx = EVP_CIPHER_CTX_new();
     EVP_EncryptInit_ex(cipher_ctx, EVP_aes_256_cbc(), NULL, encr_key, iv_16);
     blocksize = EVP_CIPHER_CTX_block_size(cipher_ctx);
-#endif
 #endif
 
     log_debug("%s:%d - Block size: %ld",MCFL,blocksize);
@@ -753,7 +800,7 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
             8,
             kdf_iter,
             32,
-            hmac_key); /* hmac_key is returend */
+            hmac_key); /* hmac_key is returned */
     if (rc != 1)
     {
         log_err("ERROR: Could not derive key from password with hmac salt and iter");
@@ -772,65 +819,61 @@ unsigned char *rncryptorc_encrypt_data_with_password_with_salts_and_iv(const uns
     EVP_EncryptUpdate(&cipher_ctx,ciphertext,&outlen1,indata,indata_len);
     EVP_EncryptFinal(&cipher_ctx,ciphertext + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_EncryptUpdate(&cipher_ctx,ciphertext,&outlen1,indata,indata_len);
     EVP_EncryptFinal(&cipher_ctx,ciphertext + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
 #else
     EVP_EncryptUpdate(cipher_ctx, ciphertext, &outlen1, indata, indata_len);
     EVP_EncryptFinal_ex(cipher_ctx, ciphertext + outlen1, &outlen2);
-#endif
+    EVP_CIPHER_CTX_free(cipher_ctx);
+    cipher_ctx = NULL;
 #endif
     mutils_write_blob(blob,outlen1 + outlen2,ciphertext);
 
     log_debug("%s:%d - Plain text length: %d",MCFL,indata_len);
-    log_debug("%s:%d - Cipther text length: %d",MCFL,outlen1 + outlen2);
+    log_debug("%s:%d - Cipher text length: %d",MCFL,outlen1 + outlen2);
     log_debug("%s:%d - Padding %d bytes",
             MCFL,
             (ciphertext_len - indata_len));
     log_debug("%s:%d - outdata len: %d",MCFL,outlen1 + outlen2);
 
     log_debug("%s:%d - calculating HMAC-SHA256",MCFL);
-    /* calculate HMAC-SHA256 */
 
-#ifdef LIBRESSL_VERSION_NUMBER
-    sha256 = EVP_sha256();
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,hmac_key,sizeof(hmac_key),sha256);
-    HMAC_Update(&hmac_ctx,blob->data,blob->length);
-    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
-    HMAC_CTX_cleanup(&hmac_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
-    sha256 = EVP_sha256();
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,hmac_key,sizeof(hmac_key),sha256);
-    HMAC_Update(&hmac_ctx,blob->data,blob->length);
-    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
-    HMAC_CTX_cleanup(&hmac_ctx);
-#else
-	hmac_ctx = HMAC_CTX_new();
-	HMAC_Init_ex(hmac_ctx,hmac_key,sizeof(hmac_key),EVP_sha256(),NULL);
-	HMAC_Update(hmac_ctx,blob->data,blob->length);
-	HMAC_Final(hmac_ctx,hmac_sha256,&hmac_len);
-#endif
-#endif
+    rc = compute_hmac_sha256(hmac_key, sizeof(hmac_key),
+            blob->data, blob->length,
+            hmac_sha256, &hmac_len);
+    if (rc != SUCCESS)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"%s",
+                "Could not compute HMAC");
+        goto ExitProcessing;
+    }
 
     mutils_write_blob(blob,hmac_len,hmac_sha256);
-    log_debug("%s:%d - Output lenth %lu",MCFL,blob->length);
+    log_debug("%s:%d - Output length %lu",MCFL,blob->length);
 
     output = (unsigned char *)malloc(blob->length * sizeof(unsigned char));
     CHECK_MALLOC(output);
 
     memcpy(output,blob->data,blob->length);
     *outdata_len = blob->length;
+
 ExitProcessing:
+    /* zero out key material before freeing */
+    OPENSSL_cleanse(encr_key, sizeof(encr_key));
+    OPENSSL_cleanse(hmac_key, sizeof(hmac_key));
+
+#if !defined(LIBRESSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+    if (cipher_ctx)
+    {
+        EVP_CIPHER_CTX_free(cipher_ctx);
+    }
+#endif
     if (ci)
     {
         free_rncryptor_info(ci);
     }
-
     if (blob)
     {
         mutils_destroy_blob(blob);
@@ -859,6 +902,8 @@ unsigned char *rncryptorc_encrypt_data_with_key(const unsigned char *indata,
 
     int
         rc;
+
+    (void)kdf_iter; /* not used for key-based encryption */
 
     *outdata_len = 0;
     memset(iv_16,0,16);
@@ -909,31 +954,19 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
     MutilsBlob
         *blob = NULL;
 
-
 #ifdef LIBRESSL_VERSION_NUMBER
-    const EVP_MD
-        *sha256 = NULL;
-	EVP_CIPHER_CTX
+    EVP_CIPHER_CTX
         cipher_ctx;
-    HMAC_CTX
-        hmac_ctx;
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    const EVP_MD
-        *sha256 = NULL;
-	EVP_CIPHER_CTX
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
+    EVP_CIPHER_CTX
         cipher_ctx;
-    HMAC_CTX
-        hmac_ctx;
 #else
-    /* OpenSSL 1.1.x*/
-	EVP_CIPHER_CTX
-        *cipher_ctx;
-    HMAC_CTX
-        *hmac_ctx;
-#endif
+    /* OpenSSL 1.1.x and 3.x */
+    EVP_CIPHER_CTX
+        *cipher_ctx = NULL;
 #endif
 
+    (void)kdf_iter; /* not used for key-based encryption */
 
     int
         outlen1 = 0,
@@ -957,6 +990,8 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
     int
         ciphertext_length;
 
+    int
+        rc = FAILURE;
 
 
     log_debug("%s:%d - verifying input",MCFL);
@@ -971,15 +1006,13 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
 #ifdef LIBRESSL_VERSION_NUMBER
     EVP_EncryptInit(&cipher_ctx,EVP_aes_256_cbc(),encr_key_32,iv_16);
     blocksize = EVP_CIPHER_CTX_block_size(&cipher_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_EncryptInit(&cipher_ctx,EVP_aes_256_cbc(),encr_key_32,iv_16);
     blocksize = EVP_CIPHER_CTX_block_size(&cipher_ctx);
 #else
     cipher_ctx = EVP_CIPHER_CTX_new();
     EVP_EncryptInit_ex(cipher_ctx, EVP_aes_256_cbc(), NULL, encr_key_32, iv_16);
     blocksize = EVP_CIPHER_CTX_block_size(cipher_ctx);
-#endif
 #endif
     log_debug("%s:%d - Block size: %ld",MCFL,blocksize);
 
@@ -1023,7 +1056,7 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
         (unsigned char *) malloc(ciphertext_length * sizeof(unsigned char));
     CHECK_MALLOC(ciphertext);
     log_debug("%s:%d - Plain text length: %d",MCFL,indata_len);
-    log_debug("%s:%d - Cipther text length: %d",MCFL,ciphertext_length);
+    log_debug("%s:%d - Cipher text length: %d",MCFL,ciphertext_length);
     log_debug("%s:%d - Padding %d bytes",
             MCFL,(ciphertext_length - indata_len));
 
@@ -1031,41 +1064,28 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
     EVP_EncryptUpdate(&cipher_ctx,ciphertext,&outlen1,indata,indata_len);
     EVP_EncryptFinal(&cipher_ctx,ciphertext + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_EncryptUpdate(&cipher_ctx,ciphertext,&outlen1,indata,indata_len);
     EVP_EncryptFinal(&cipher_ctx,ciphertext + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
 #else
     EVP_EncryptUpdate(cipher_ctx,ciphertext,&outlen1,indata,indata_len);
     EVP_EncryptFinal_ex(cipher_ctx,ciphertext + outlen1,&outlen2);
-#endif
+    EVP_CIPHER_CTX_free(cipher_ctx);
+    cipher_ctx = NULL;
 #endif
     mutils_write_blob(blob,outlen1 + outlen2,ciphertext);
 
     /* calculate HMAC-SHA256 */
-#ifdef LIBRESSL_VERSION_NUMBER
-    sha256 = EVP_sha256();
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,hmac_key_32,32,sha256);
-    HMAC_Update(&hmac_ctx,blob->data,blob->length);
-    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
-    HMAC_CTX_cleanup(&hmac_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
-    sha256 = EVP_sha256();
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init(&hmac_ctx,hmac_key_32,32,sha256);
-    HMAC_Update(&hmac_ctx,blob->data,blob->length);
-    HMAC_Final(&hmac_ctx,hmac_sha256,&hmac_len);
-    HMAC_CTX_cleanup(&hmac_ctx);
-#else
-	hmac_ctx = HMAC_CTX_new();
-	HMAC_Init_ex(hmac_ctx,hmac_key_32,32,EVP_sha256(),NULL);
-	HMAC_Update(hmac_ctx, blob->data, blob->length);
-	HMAC_Final(hmac_ctx,hmac_sha256,&hmac_len);
-#endif
-#endif
+    rc = compute_hmac_sha256(hmac_key_32, 32,
+            blob->data, blob->length,
+            hmac_sha256, &hmac_len);
+    if (rc != SUCCESS)
+    {
+        (void)snprintf(errbuf,errbuf_len-1,"%s",
+                "Could not compute HMAC");
+        goto ExitProcessing;
+    }
 
     mutils_write_blob(blob,hmac_len,hmac_sha256);
     output = (unsigned char *)malloc(blob->length * sizeof(unsigned char));
@@ -1073,12 +1093,18 @@ unsigned char *rncryptorc_encrypt_data_with_key_iv(const unsigned char *indata,
 
     memcpy(output,blob->data,blob->length);
     *outdata_len = blob->length;
+
 ExitProcessing:
+#if !defined(LIBRESSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+    if (cipher_ctx)
+    {
+        EVP_CIPHER_CTX_free(cipher_ctx);
+    }
+#endif
     if (ci)
     {
         free_rncryptor_info(ci);
     }
-
     if (blob)
     {
         mutils_destroy_blob(blob);
@@ -1113,15 +1139,13 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
 #ifdef LIBRESSL_VERSION_NUMBER
     EVP_CIPHER_CTX
         cipher_ctx;
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_CIPHER_CTX
         cipher_ctx;
 #else
-    /* OpenSSL 1.1.x*/
+    /* OpenSSL 1.1.x and 3.x */
     EVP_CIPHER_CTX
-        *cipher_ctx;
-#endif
+        *cipher_ctx = NULL;
 #endif
 
     unsigned char
@@ -1181,7 +1205,7 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
             ci->options);
 
     log_debug("%s:%d - Verifying HMAC-SHA256 digest",MCFL);
-    /* very hmac */
+    /* verify hmac */
     if (verify_hmac(ci,password,password_length) != SUCCESS)
     {
         (void)snprintf(errbuf,errbuf_len-1,"%s",
@@ -1199,7 +1223,7 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
             sizeof(ci->encryption_salt),
             ci->kdf_iter,
             sizeof(ci->encr_key),
-            ci->encr_key); /* ci->encr_key is returend */
+            ci->encr_key); /* ci->encr_key is returned */
     if (rc != 1)
     {
         log_err("ERROR: Could not derive key from password with encr salt and iter");
@@ -1208,7 +1232,7 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
     log_debug("%s:%d - Encryption key derived",MCFL);
 
     /* decrypt */
-    outdata = (unsigned char *)malloc(ci->cipher_text_length *sizeof(unsigned char));
+    outdata = (unsigned char *)malloc(ci->cipher_text_length * sizeof(unsigned char));
     CHECK_MALLOC(outdata);
 
     log_debug("%s:%d - Decrypting..",MCFL);
@@ -1218,8 +1242,7 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
             ci->cipher_text_length);
     EVP_DecryptFinal(&cipher_ctx,outdata + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_DecryptInit(&cipher_ctx,EVP_aes_256_cbc(),ci->encr_key,ci->iv);
     EVP_DecryptUpdate(&cipher_ctx,outdata,&outlen1,ci->cipher_text,
             ci->cipher_text_length);
@@ -1230,14 +1253,21 @@ unsigned char *rncryptorc_decrypt_data_with_password(const unsigned char *indata
     EVP_DecryptInit_ex(cipher_ctx, EVP_aes_256_cbc(), NULL, ci->encr_key, ci->iv);
     EVP_DecryptUpdate(cipher_ctx,outdata,&outlen1,ci->cipher_text,
             ci->cipher_text_length);
-    EVP_DecryptFinal(cipher_ctx, outdata + outlen1, &outlen2);
+    EVP_DecryptFinal_ex(cipher_ctx, outdata + outlen1, &outlen2);
+    EVP_CIPHER_CTX_free(cipher_ctx);
+    cipher_ctx = NULL;
 #endif
-#endif
-
 
     *outdata_len = outlen1 + outlen2;
     log_debug("%s:%d - Done decrypting, output length %d bytes",MCFL,*outdata_len);
+
 ExitProcessing:
+#if !defined(LIBRESSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+    if (cipher_ctx)
+    {
+        EVP_CIPHER_CTX_free(cipher_ctx);
+    }
+#endif
     if (ci)
     {
         free_rncryptor_info(ci);
@@ -1272,19 +1302,19 @@ unsigned char *rncryptorc_decrypt_data_with_key(const unsigned char *indata,
 #ifdef LIBRESSL_VERSION_NUMBER
     EVP_CIPHER_CTX
         cipher_ctx;
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_CIPHER_CTX
         cipher_ctx;
 #else
-    /* OpenSSL 1.1.x*/
+    /* OpenSSL 1.1.x and 3.x */
     EVP_CIPHER_CTX
-        *cipher_ctx;
-#endif
+        *cipher_ctx = NULL;
 #endif
 
     unsigned char
         *outdata = NULL;
+
+    (void)kdf_iter; /* not used for key-based decryption */
 
     if (errbuf_len <= 0)
     {
@@ -1326,12 +1356,12 @@ unsigned char *rncryptorc_decrypt_data_with_key(const unsigned char *indata,
         goto ExitProcessing;
     }
     log_debug("Decoded successfully");
-    
+
     ci->kdf_iter = kdf_iter;
 
     /*
     ** copy the keys to our data structure, this way we don't have
-    ** to change code for decryptiion
+    ** to change code for decryption
     */
     memcpy(ci->encr_key,encr_key,32);
     memcpy(ci->hmac_key,hmac_key,32);
@@ -1347,11 +1377,9 @@ unsigned char *rncryptorc_decrypt_data_with_key(const unsigned char *indata,
     }
     log_debug("HMAC verified");
 
-
     /* malloc for returned data */
-    outdata = (unsigned char *)malloc(ci->cipher_text_length *sizeof(unsigned char));
+    outdata = (unsigned char *)malloc(ci->cipher_text_length * sizeof(unsigned char));
     CHECK_MALLOC(outdata);
-
 
 #ifdef LIBRESSL_VERSION_NUMBER
     EVP_DecryptInit(&cipher_ctx,EVP_aes_256_cbc(),ci->encr_key,ci->iv);
@@ -1359,27 +1387,32 @@ unsigned char *rncryptorc_decrypt_data_with_key(const unsigned char *indata,
             ci->cipher_text_length);
     EVP_DecryptFinal(&cipher_ctx,outdata + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
-#else
-#if OPENSSL_VERSION_NUMBER < 0x10100000L	
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
     /* decrypt */
     EVP_DecryptInit(&cipher_ctx,EVP_aes_256_cbc(),ci->encr_key,ci->iv);
     EVP_DecryptUpdate(&cipher_ctx,outdata,&outlen1,ci->cipher_text,
             ci->cipher_text_length);
     EVP_DecryptFinal(&cipher_ctx,outdata + outlen1,&outlen2);
     EVP_CIPHER_CTX_cleanup(&cipher_ctx);
-
 #else
     cipher_ctx = EVP_CIPHER_CTX_new();
     EVP_DecryptInit_ex(cipher_ctx, EVP_aes_256_cbc(), NULL, ci->encr_key, ci->iv);
     EVP_DecryptUpdate(cipher_ctx,outdata,&outlen1,ci->cipher_text,
             ci->cipher_text_length);
-    EVP_DecryptFinal(cipher_ctx, outdata + outlen1, &outlen2);
-#endif
+    EVP_DecryptFinal_ex(cipher_ctx, outdata + outlen1, &outlen2);
+    EVP_CIPHER_CTX_free(cipher_ctx);
+    cipher_ctx = NULL;
 #endif
 
     *outdata_len = outlen1 + outlen2;
 
 ExitProcessing:
+#if !defined(LIBRESSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+    if (cipher_ctx)
+    {
+        EVP_CIPHER_CTX_free(cipher_ctx);
+    }
+#endif
     if (ci)
     {
         free_rncryptor_info(ci);
@@ -1430,7 +1463,7 @@ void show_example_usage(const char *prog,const char *arg1,const char *arg2)
 
         (void) fprintf(stderr,"Set the password with env variable RNCPASS\n");
         (void) fprintf(stderr,
-"Exmaple:\n"
+"Example:\n"
 "In Linux/Unix:\n"
 "  RNCPASS=\"secret\";export RNCPASS\n"
 "In Windows:\n"

@@ -60,11 +60,14 @@ $(LIBNAME) : $(OBJS)
 	$(AR) $(ARFLAGS) $@ $(OBJS)
 	$(RANLIB) $@
 
+.PHONY: examples
 examples: $(LIBNAME)
-	$(CC) $(CFLAGS) rn_decrypt.c -o rn_decrypt $(LIBS)
-	$(CC) $(CFLAGS) rn_encrypt.c -o rn_encrypt $(LIBS)
-	$(CC) $(CFLAGS) rn_encrypt_with_key.c -o rn_encrypt_with_key $(LIBS)
-	$(CC) $(CFLAGS) rn_decrypt_with_key.c -o rn_decrypt_with_key $(LIBS)
+	@echo ">> Compiling example programs ..."
+	@$(CC) $(CFLAGS) rn_decrypt.c -o rn_decrypt $(LIBS)
+	@$(CC) $(CFLAGS) rn_encrypt.c -o rn_encrypt $(LIBS)
+	@$(CC) $(CFLAGS) rn_encrypt_with_key.c -o rn_encrypt_with_key $(LIBS)
+	@$(CC) $(CFLAGS) rn_decrypt_with_key.c -o rn_decrypt_with_key $(LIBS)
+	@echo "<done>"
 
 
 # Generate the C code from RNCryptor's test vectors
@@ -74,7 +77,9 @@ gen_tester:
 
 # sanity test
 test_simple:examples
+	@echo ">> Starting tests ..."
 	+ruby tests/test.rb
+	@echo "<done>"
 
 # test code must be pre-generated with target gen_test_vector_code
 # we use the test in windows as well but code is generated in Unix with ruby
@@ -98,6 +103,10 @@ install-all:
 	$(INSTALL_PROGRAM) rn_decrypt_with_key ${DESTDIR}${bindir}
 	$(INSTALL_PROGRAM) rn_encrypt ${DESTDIR}${bindir}
 	$(INSTALL_PROGRAM) rn_encrypt_with_key ${DESTDIR}${bindir}
+
+.PHONY: docs
+docs:
+	./mkdocs.sh
 
 clean:
 	rm -f $(OBJS) *.o $(LIBNAME) rn_encrypt rn_decrypt rn_encrypt_with_key rn_decrypt_with_key \

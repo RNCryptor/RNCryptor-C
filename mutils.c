@@ -379,7 +379,7 @@ int mutils_read_blob_byte(MutilsBlob *blob)
         count;
 
     unsigned char
-        buffer[1];
+        buffer[1] = {0};
 
     if (blob == NULL)
         return(-1);
