@@ -60,10 +60,8 @@ Specify the path of OpenSSL with `configure` to generate the `Makefile`
 ```bash
 $ ./configure --with-openssl=/usr
 $ ./configure --with-openssl=/usr/local/ssl
-    On macOS Intel, openssl installed with homebrew:
-$ ./configure --with-openssl=/usr/local/Cellar/openssl@3/3.6.1
-    On Apple Silicon, openssl installed with homebrew:
-$ ./configure --with-openssl=/opt/homebrew/Cellar/openssl@3/3.6.1
+    On macOS openssl installed with homebrew:
+$ ./configure --with-openssl=$(brew --prefix openssl@3)
 $ make clean
 $ make
 $ make examples
