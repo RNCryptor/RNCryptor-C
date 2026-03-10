@@ -20,7 +20,8 @@ memory leaks. Clean key material on exit.
 
 - Code cleanup to remove compiler warnings.
 
-- Move docs from AsciiDoc to Markdown format.
+- Move docs from AsciiDoc to Markdown format. I used the instruction in this
+page [AsciiDoc to Markdown](https://karinavarela.me/2020/05/06/converting-asciidoc-to-markdown/). Didn't need much cleanup.
 
 (Mar-07-2026)
 
